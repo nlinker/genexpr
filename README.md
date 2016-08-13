@@ -28,4 +28,4 @@ Operations have usual precedence and left associativity.
    - `stack test` - run unit tests
 3. Run `exprgen --help` for further instructions
 
-   Example: `exprgen -n 10 -m 20 -s 1`
+   Example: `exprgen -l 3 -n 10 -m 20`
