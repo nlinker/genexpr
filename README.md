@@ -14,7 +14,7 @@ Operations have usual precedence and left associativity.
 | 5 | 30 | 100 | `-30 * 10 + 20 * 11 / 1` |
 
 ### Goals
-- Implementation should read `L`, `M` and `N` from file and/or command line arguments.
+- Implementation should read `L`, `M` and `N` from command line arguments.
 - Expression should not contain redundant parentheses. For instance, `((5+(6*7))` should actually be `5+6*7`, whereas `5*(-2)` has no redundant parentheses.
 - Generation should be comprehensive.
 
@@ -26,6 +26,7 @@ Operations have usual precedence and left associativity.
    - `stack build` - compile only
    - `stack ghci` - run REPL with project modules
    - `stack test` - run unit tests
-3. Run `exprgen --help` for further instructions
 
-   Example: `exprgen -l 3 -n 10 -m 20`
+3. Run `exprgen --help` for further instructions
+   Example: 
+   `exprgen -l 3 -n 10 -m 20`
