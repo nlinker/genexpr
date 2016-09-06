@@ -1,0 +1,52 @@
+-- This file has been generated from package.yaml by hpack version 0.14.0.
+--
+-- see: https://github.com/sol/hpack
+
+name:           expr-gen
+version:        0.1.0.0
+description:    A solution to the task on generating arithmetic expressions
+category:       example
+maintainer:     Nick Linker <nlinker@gmail.com>
+license:        BSD3
+build-type:     Simple
+cabal-version:  >= 1.10
+
+extra-source-files:
+    README.md
+
+executable expr-gen
+  main-is: Main.hs
+  hs-source-dirs:
+      src
+    , exe
+  ghc-options: -Wall -fno-warn-name-shadowing -fwarn-incomplete-record-updates -fwarn-incomplete-uni-patterns
+  build-depends:
+      base ==4.*
+    , getopt-generics ==0.12.* || ==0.13.*
+    , ghc
+    , ghc-paths
+    , gitrev
+  other-modules:
+      Run
+  default-language: Haskell2010
+
+test-suite spec
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs:
+      src
+    , test
+  ghc-options: -Wall -fno-warn-name-shadowing -fwarn-incomplete-record-updates -fwarn-incomplete-uni-patterns
+  build-depends:
+      base ==4.*
+    , getopt-generics ==0.12.* || ==0.13.*
+    , ghc
+    , ghc-paths
+    , gitrev
+    , hspec
+    , QuickCheck
+  other-modules:
+      Run
+      MainSpec
+      Spec
+  default-language: Haskell2010

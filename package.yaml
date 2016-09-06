@@ -1,0 +1,39 @@
+name: expr-gen
+version: "0.1.0.0"
+description: A solution to the task on generating arithmetic expressions
+category: example
+maintainer: Nick Linker <nlinker@gmail.com>
+license: BSD3
+
+source-dirs: src
+
+extra-source-files: README.md
+
+ghc-options:
+- -Wall
+- -fno-warn-name-shadowing
+- -fwarn-incomplete-record-updates
+- -fwarn-incomplete-uni-patterns
+
+dependencies:
+- base ==4.*
+- getopt-generics ==0.12.* || ==0.13.*
+- ghc
+- ghc-paths
+- gitrev
+
+executables:
+  expr-gen:
+    main: Main.hs
+    source-dirs:
+    - exe
+
+tests:
+  spec:
+    main: Main.hs
+    source-dirs:
+    - test
+    dependencies:
+    - hspec
+    - QuickCheck
+
