@@ -27,6 +27,7 @@ executable expr-gen
     , ghc-paths
     , gitrev
   other-modules:
+      Check
       Gen
       Opt
       Run
@@ -48,6 +49,7 @@ test-suite spec
     , hspec
     , QuickCheck
   other-modules:
+      Check
       Gen
       Opt
       Run

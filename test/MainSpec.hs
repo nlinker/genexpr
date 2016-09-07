@@ -4,9 +4,10 @@ module MainSpec where
 
 import Test.Hspec
 import Test.QuickCheck
-import Run
+import Check
 import Opt
 import Gen
+import Run
 
 spec :: Spec
 spec = do
