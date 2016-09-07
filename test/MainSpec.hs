@@ -1,5 +1,17 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
+{-
+TODO don't know what to do
+Defaulting the following constraint(s) to type ‘Integer’
+  (Integral a0)
+    arising from a use of ‘div’ at test/MainSpec.hs:41:18-22
+  (Num a0) arising from the literal ‘1’ at test/MainSpec.hs:41:16
+In the first argument of ‘add’, namely ‘(1 `div` 2)’
+In the expression: (1 `div` 2) `add` 3
+In an equation for ‘e’: e = (1 `div` 2) `add` 3
+-}
+
 module MainSpec where
 
 import Test.Hspec
