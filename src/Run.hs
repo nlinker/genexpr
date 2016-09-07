@@ -3,21 +3,10 @@
 
 module Run where
 
-import           Development.GitRev
-import           WithCli
-import           GHC
-import           Data.Version
+import           Development.GitRev (gitHash, gitBranch, gitDirty)
+import           Data.Version       (showVersion)
 import qualified Paths_expr_gen as Paths
 
-data Options = Options {
-    exprRange :: Int,
-    litRange :: Int,
-    litCount :: Int,
-    version :: Bool
-  }
-  deriving (Show, Eq, Generic)
-
-instance HasArguments Options
 
 run :: IO ()
 run = putStrLn versionOutput

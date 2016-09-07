@@ -27,6 +27,8 @@ executable expr-gen
     , ghc-paths
     , gitrev
   other-modules:
+      Gen
+      Opt
       Run
   default-language: Haskell2010
 
@@ -46,6 +48,8 @@ test-suite spec
     , hspec
     , QuickCheck
   other-modules:
+      Gen
+      Opt
       Run
       MainSpec
       Spec

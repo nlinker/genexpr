@@ -1,4 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module MainSpec where
@@ -6,19 +5,50 @@ module MainSpec where
 import Test.Hspec
 import Test.QuickCheck
 import Run
+import Opt
+import Gen
 
 spec :: Spec
 spec = do
-  describe "Property X" $
-    it "merge is ordered" $
-      property (prop_Merge)
-  describe "read" $ do
+  describe "boundNum" $ do
+    it "returns the same if bounds are ok" $ do
+      let e1 = Add (Mul (Num 1) (Num 2)) (Num 3)
+      let on = OptN 10
+      boundNum on e1 `shouldBe` Just e1
+    it "returns Noting when a leaf is too high" $ do
+      let e1 = Add (Mul (Num 11) (Num 2)) (Num 3)
+      let on = OptN 10
+      boundNum on e1 `shouldBe` Nothing
+    it "returns Noting when a leaf is too low" $ do
+      let e1 = Add (Mul (Num $ negate 11) (Num 2)) (Num 3)
+      let on = OptN 10
+      boundNum on e1 `shouldBe` Nothing
+  describe "intVal" $ do
+    it "evaluates normally" $ do
+      let e = Add (Mul (Num 1) (Num 2)) (Num 3)
+      intVal e `shouldBe` Just 5
+    it "even with division" $ do
+      let e = Add (Div (Num 2) (Num 1)) (Num 3)
+      intVal e `shouldBe` Just 5
+    it "floating division results to Nothing" $ do
+      let e = Add (Div (Num 1) (Num 2)) (Num 3)
+      intVal e `shouldBe` Nothing
+    it "divide by zero results to Nothing" $ do
+      let e = Add (Div (Num 1) (Num 0)) (Num 3)
+      intVal e `shouldBe` Nothing
+
+  describe "properties" $ do
     it "is inverse to show" $
       property $ \x -> (read . show) x == (x :: Int)
+    it "another property test" $
+      property $ forAll (genWithin 10) $ \x -> x < 11 && x > negate 11
+
+genWithin :: Int -> Gen Int
+genWithin n = (arbitrary :: Gen Int) `suchThat` (\x -> abs x <= n)
 
 ordered :: Ord a => [a] -> Bool
 ordered []       = True
-ordered [x]      = True
+ordered [_]      = True
 ordered (x:y:xs) = x <= y && ordered (y:xs)
 
 prop_Merge :: [Int] -> [Int] -> Property
