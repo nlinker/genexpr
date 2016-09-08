@@ -16,7 +16,7 @@ module MainSpec where
 
 import Test.Hspec
 import Test.QuickCheck
-import Prelude hiding (div)
+import Prelude hiding (div, exp)
 
 import Check
 import Opt
@@ -51,6 +51,28 @@ spec = do
     it "divide by zero results to Nothing" $ do
       let e = (1 `div` 0) `add` 3
       intVal e `shouldBe` Nothing
+  describe "genTree" $ do
+    it "normal left tree" $ do
+      let bs = const False <$> [1..]
+      let ops = const Add <$> [1..]
+      let xs = [1..]
+      let tree = genTree 4 bs ops xs
+      let expt = Just $ 1 `add` (2 `add` (3 `add` 4))
+      tree `shouldBe` expt
+    it "normal right tree" $ do
+      let bs = const True <$> [1..]
+      let ops = const Add <$> [1..]
+      let xs = [1..]
+      let tree = genTree 4 bs ops xs
+      let expt = Just $ 4 `add` 3 `add` 2 `add` 1
+      tree `shouldBe` expt
+    it "div by zero" $ do
+      let bs = const False <$> [1..]
+      let ops = const Div <$> [1..]
+      let xs = [1,2,3,0]
+      let tree = genTree 4 bs ops xs
+      let expt = Nothing
+      tree `shouldBe` expt
 
   describe "properties" $ do
     it "is inverse to show" $
