@@ -4,6 +4,7 @@ import Control.Applicative (liftA2)
 
 import Gen
 import Opt
+import Expr
 
 -- isBound, OptN bounds the term value
 isBound :: OptN -> Expr -> Bool

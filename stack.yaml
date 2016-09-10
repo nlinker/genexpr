@@ -1,6 +1,7 @@
 resolver: lts-6.2
 packages:
 - '.'
-extra-deps: []
+extra-deps:
+- combinat-0.2.8.1
 flags: {}
 extra-package-dbs: []

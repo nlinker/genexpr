@@ -22,12 +22,15 @@ executable expr-gen
   ghc-options: -Wall -fno-warn-name-shadowing -fwarn-incomplete-record-updates -fwarn-incomplete-uni-patterns
   build-depends:
       base ==4.*
+    , exceptions
     , getopt-generics ==0.12.* || ==0.13.*
     , ghc
     , ghc-paths
     , gitrev
+    , combinat
   other-modules:
       Check
+      Expr
       Gen
       Opt
       Run
@@ -42,14 +45,17 @@ test-suite spec
   ghc-options: -Wall -fno-warn-name-shadowing -fwarn-incomplete-record-updates -fwarn-incomplete-uni-patterns
   build-depends:
       base ==4.*
+    , exceptions
     , getopt-generics ==0.12.* || ==0.13.*
     , ghc
     , ghc-paths
     , gitrev
+    , combinat
     , hspec
     , QuickCheck
   other-modules:
       Check
+      Expr
       Gen
       Opt
       Run

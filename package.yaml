@@ -17,10 +17,12 @@ ghc-options:
 
 dependencies:
 - base ==4.*
+- exceptions
 - getopt-generics ==0.12.* || ==0.13.*
 - ghc
 - ghc-paths
 - gitrev
+- combinat
 
 executables:
   expr-gen:
@@ -36,4 +38,3 @@ tests:
     dependencies:
     - hspec
     - QuickCheck
-
