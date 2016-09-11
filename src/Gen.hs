@@ -3,7 +3,9 @@
 module Gen where
 
 import Control.Applicative (liftA2)
-import Control.Monad.Catch (MonadThrow)
+import Control.Monad.Catch
+import Control.Monad.Identity
+import Data.Typeable (Typeable)
 import Prelude hiding (exp)
 import Expr
 
@@ -27,12 +29,19 @@ genTree n (b:bs) (op:ops) (x:xs) = do
       else Op op (Nm x) exp
 genTree _n _bs _ops _xs = Nothing
 
--- pure expression generator, which however may fail because:
+
+data GenException = ArgumentException
+    deriving (Show, Typeable)
+
+instance Exception GenException
+
+-- pure expression generator, which evaluates
+-- and generates the expression. It may fail because:
 -- 1. There is division by zero
 -- 2. There is non-integer division
--- 3. There is
-getT :: (MonadThrow m) => Int -> [Bool] -> [OT] -> [Integer] -> m Expr
-getT = undefined
+-- 3. There is not enough items in the lists
+getT :: MonadThrow m => Int -> [Bool] -> [OT] -> [Integer] -> m Expr
+getT _a _b _c _d = throwM ArgumentException
 
 -- eval and check if the expression is integer valued
 -- the function either evaluates the expression

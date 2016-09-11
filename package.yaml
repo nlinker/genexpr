@@ -23,6 +23,8 @@ dependencies:
 - ghc-paths
 - gitrev
 - combinat
+- spoon
+- mtl
 
 executables:
   expr-gen:

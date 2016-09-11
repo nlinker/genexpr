@@ -28,6 +28,8 @@ executable expr-gen
     , ghc-paths
     , gitrev
     , combinat
+    , spoon
+    , mtl
   other-modules:
       Check
       Expr
@@ -51,6 +53,8 @@ test-suite spec
     , ghc-paths
     , gitrev
     , combinat
+    , spoon
+    , mtl
     , hspec
     , QuickCheck
   other-modules:
