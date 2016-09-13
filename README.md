@@ -2,24 +2,32 @@
 
 ## Valid constraint
 Generate random arithmetic expressions such that they have `L` literals,
-each literal is integer and does not exceed `M` in absolute value.
-The evaluation result of the whole expression should be _integer_ and not exceed `N`
-in absolute value (note, that some intermediate expressions can exceed `N`).
+each literal is integer and does not exceed `N` in absolute value.
+The evaluation result of the whole expression _and_ its subexpressions except literals
+are integer and do not exceed `M` in absolute value.
 
 Allowed arithmetic operations: addition, subtraction, multiplication, division.
 Operations have usual precedence and left associativity.
+
+### Notes
+
+- So the expression `1 / 2 * 4` is invalid since `1 / 2` is not integer.
+- The expression `10 * 10 * 10 / 10` is invalid for, say, `M = 100`,
+since it evaluates as `(((10 * 10) * 10) / 10)` and intermediate expression `100 * 10`
+is too big.
+- The expression `3 * 4 / (1 - 1) * (1 - 1)` is invalid, since it has division by zero.
 
 ### Goals
 - Implementation should read `L`, `M` and `N` from command line arguments.
 - Generate a random expression and print it on the screen.
 - The expression should be valid.
-- The expression should not contain redundant parentheses. For instance, `((5+(6*7))` should actually be `5+6*7`, whereas `5*(-2)` has no redundant parentheses.
-- Generation should be comprehensive (if some expression is valid, it should be possible to generate it in principle)
+- The expression should _not_ contain redundant parentheses. For instance, `((5+(6*7))` should actually be `5+6*7`, whereas `5*(-2)` and `5+(-2)` has no redundant parentheses (to remove parentheses here we need a simplification process implemented, which is not needed for the task).
+- Generation should be comprehensive (if some expression is valid, it should be possible to generate it in principle).
 
 ### Examples
-| L |  M |   N |               Expression |
+| L |  N |   M |               Expression |
 |---|----|-----|--------------------------|
-| 3 |  4 |   2 | `1 / 2 * 4`              |
+| 4 |  4 |   4 | `4 / (0 - 4) - 3`        |
 | 3 | 10 | 100 | `(2 + 8) * (-10)`        |
 | 4 | 20 | 100 | `-16 / 4 * 19 + 14`      |
 | 5 | 30 | 100 | `-30 * 10 + 20 * 11 / 1` |

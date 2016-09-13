@@ -5,6 +5,7 @@ module Gen where
 import Control.Applicative (liftA2)
 import Control.Monad.Catch
 import Control.Monad.Identity
+import Control.Monad.Random
 import Data.Typeable (Typeable)
 import Prelude hiding (exp)
 import Expr
@@ -42,8 +43,9 @@ instance Exception GenException
 -- 1. There is division by zero
 -- 2. There is non-integer division
 -- 3. There is not enough items in the lists
-getT :: MonadThrow m => Int -> [Bool] -> [OT] -> [Integer] -> m Expr
-getT _a _b _c _d = throwM ArgumentException
+-- getT :: (MonadRandom m, MonadThrow m) => Int -> m Expr
+getT :: (MonadRandom m) => Int -> m Expr
+getT 0 = Nm <$> getRandomR (negate 10, 10)
 
 -- eval and check if the expression is integer valued
 -- the function either evaluates the expression
