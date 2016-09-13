@@ -25,6 +25,7 @@ dependencies:
 - combinat
 - spoon
 - mtl
+- MonadRandom
 
 executables:
   expr-gen:

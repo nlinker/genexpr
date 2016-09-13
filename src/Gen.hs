@@ -30,7 +30,9 @@ genTree n (b:bs) (op:ops) (x:xs) = do
 genTree _n _bs _ops _xs = Nothing
 
 
-data GenException = ArgumentException
+data GenException =
+  ArgumentException |
+  ConfigExcepiton
     deriving (Show, Typeable)
 
 instance Exception GenException
@@ -62,14 +64,3 @@ intVal (Op op exp1 exp2) = case op of
 -- true is n/d is an integer and d is nonzero
 divOk :: Integer -> Integer -> Bool
 divOk n d = d /= 0 && rem n d == 0
-
-
-data T = B T T | L deriving (Eq)
-
-instance Show T where
-  show L = "."
-  show (B l r) = "(" ++ show l ++ show r ++ ")"
-
-buildTs :: Int -> [T]
-buildTs 0 = [L]
-buildTs n = [B l r | i <- [0..n-1], l <- buildTs i, r <- buildTs (n-1-i) ]

@@ -3,7 +3,8 @@
 ## Valid constraint
 Generate random arithmetic expressions such that they have `L` literals,
 each literal is integer and does not exceed `M` in absolute value.
-Expression evaluation result should be _integer_ and not exceed `N` in absolute value.
+The evaluation result of the whole expression should be _integer_ and not exceed `N`
+in absolute value (note, that some intermediate expressions can exceed `N`).
 
 Allowed arithmetic operations: addition, subtraction, multiplication, division.
 Operations have usual precedence and left associativity.
@@ -18,6 +19,7 @@ Operations have usual precedence and left associativity.
 ### Examples
 | L |  M |   N |               Expression |
 |---|----|-----|--------------------------|
+| 3 |  4 |   2 | `1 / 2 * 4`              |
 | 3 | 10 | 100 | `(2 + 8) * (-10)`        |
 | 4 | 20 | 100 | `-16 / 4 * 19 + 14`      |
 | 5 | 30 | 100 | `-30 * 10 + 20 * 11 / 1` |
