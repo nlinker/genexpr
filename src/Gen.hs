@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 
 module Gen where
@@ -8,7 +9,10 @@ import Control.Monad.Identity
 import Control.Monad.Random
 import Data.Typeable (Typeable)
 import Prelude hiding (exp)
+
+import Check
 import Expr
+import Opt
 
 -- genTree construct a tree basing on the input lists
 -- given infinite lists with random contents
@@ -30,7 +34,6 @@ genTree n (b:bs) (op:ops) (x:xs) = do
       else Op op (Nm x) exp
 genTree _n _bs _ops _xs = Nothing
 
-
 data GenException =
   ArgumentException |
   ConfigExcepiton
@@ -44,25 +47,29 @@ instance Exception GenException
 -- 2. There is non-integer division
 -- 3. There is not enough items in the lists
 -- getT :: (MonadRandom m, MonadThrow m) => Int -> m Expr
-getT :: (MonadRandom m) => Int -> m Expr
-getT 0 = Nm <$> getRandomR (negate 10, 10)
+generate :: (MonadRandom m) => Options -> m Expr
+generate Options{..} =
+  let OptN n = optN
+      OptL l = optL
+  in genT (toInteger n) (toInteger l)
+  where
+    genT :: (MonadRandom m) => Integer -> Integer -> m Expr
+    genT n 0 = Nm <$> getRandomR (-n, n)
+    genT n l | l > 0 = do
+      i <- getRandomR (0, l - 1)
+      e1 <- genT n i
+      e2 <- genT n (l - 1 - i)
+      ot <- getRandom
+      return $ Op ot e1 e2
+    genT _ _ = error "Wrong argument(s)"
 
--- eval and check if the expression is integer valued
--- the function either evaluates the expression
--- or if the expression is not int-valued, then Nothing
-intVal :: Expr -> Maybe Integer
-intVal (Nm n) = return n
-intVal (Op op exp1 exp2) = case op of
-  Add -> liftA2 (+) (intVal exp1) $ intVal exp2
-  Sub -> liftA2 (-) (intVal exp1) $ intVal exp2
-  Mul -> liftA2 (*) (intVal exp1) $ intVal exp2
-  Div -> do
-    n <- intVal exp1
-    d <- intVal exp2
-    if n `divOk` d
-      then Just (n `Prelude.div` d)
-      else Nothing
+-- pretty print expression, we must omit redundant parentheses
+pprint :: Expr -> String
+pprint (Nm n) = if n < 0 then "(" ++ show n ++ ")" else show n
+pprint (Op ot e1 e2) = "(" ++ pprint e1 ++ " " ++ sign ot ++ " " ++ pprint e2 ++ ")"
 
--- true is n/d is an integer and d is nonzero
-divOk :: Integer -> Integer -> Bool
-divOk n d = d /= 0 && rem n d == 0
+sign :: OT -> String
+sign Add = "+"
+sign Sub = "-"
+sign Mul = "*"
+sign Div = "/"

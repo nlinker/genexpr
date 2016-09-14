@@ -4,6 +4,8 @@
 
 module Expr where
 
+import Control.Arrow
+import Control.Monad.Random
 import Prelude hiding (div)
 
 -- the expression is either number or some operation on two args
@@ -15,6 +17,21 @@ data Expr =
 -- operation type
 data OT = Add | Sub | Mul | Div
   deriving (Eq, Show, Ord)
+
+instance Random OT where
+  randomR (o1, o2) g = convertTo `first` randomR (convertFrom o1, convertFrom o2) g
+  random g = convertTo `first` randomR (0, 3) g
+
+-- helper methods to define Random instance over OT
+ots :: [(OT, Int)]
+ots = [(Add, 0), (Sub, 1), (Mul, 2), (Div, 3)]
+
+convertTo :: Int -> OT
+convertTo i = fst . head $ filter (\(_, x) -> x == i) ots
+
+convertFrom :: OT -> Int
+convertFrom ot = snd . head $ filter (\(x, _) -> x == ot) ots
+
 
 -- the class and functions to enable build expressions
 -- more naturally, like x = 1 `add` (2 `mul` 3)
