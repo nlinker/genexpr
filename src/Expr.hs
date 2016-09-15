@@ -12,15 +12,64 @@ import Prelude hiding (div)
 data Expr =
   Op OT Expr Expr |
   Nm Integer
-  deriving (Eq, Show, Ord)
+  deriving (Eq)
 
 -- operation type
 data OT = Add | Sub | Mul | Div
-  deriving (Eq, Show, Ord)
+  deriving (Eq, Ord)
+
+-- special variant of the expression above to be able to pretty
+-- print the expressiion (= without redundant parens).
+data ExprP =
+  NegP Integer |
+  PosP Integer |
+  SumP  OT ExprP ExprP | -- lower priority operations: Add or Sub
+  ProdP OT ExprP ExprP   -- higher priority operations: Mul or Div
+  deriving (Eq)
+
+---------------
+-- INSTANCES --
+
+-- show expression verbatim in the convential form
+-- pretty printing is done via (show . convE2EP)
+instance Show Expr where
+  show (Nm n) = if n < 0 then "(" ++ show n ++ ")" else show n
+  show (Op ot e1 e2) = "(" ++ show e1 ++ " " ++ show ot ++ " " ++ show e2 ++ ")"
+
+instance Show OT where
+  show Add = "+"
+  show Sub = "-"
+  show Mul = "*"
+  show Div = "/"
+
+-- rules:
+-- 1. Negative number aren't embraced if they are at the beginning of the expression or
+-- right after the paren: -3 + 4 ;  2 * (-3 + 4)
+-- 2.
+instance Show ExprP where
+  show (PosP n) = show n
+  show (SumP ot (NegP n) e2) = show n ++ " " ++ show ot ++ " " ++ show e2
+  show (ProdP ot (NegP n) e2) = show n ++ " " ++ show ot ++ " " ++ show e2
+  show (NegP n) = "(" ++ show n ++ ")"
+  show (SumP ot e1 e2) = show e1 ++ " " ++ show ot ++ " " ++ show e2
+  show (ProdP ot e1 e2) = show e1 ++ " " ++ show ot ++ " " ++ show e2
+
 
 instance Random OT where
   randomR (o1, o2) g = convertTo `first` randomR (convertFrom o1, convertFrom o2) g
   random g = convertTo `first` randomR (0, 3) g
+
+-- the class and functions to enable build expressions
+-- more naturally, like x = 1 `add` (2 `mul` 3)
+-- see funcions add, sub, mul, div
+class ToExpr a where
+  toExpr :: a -> Expr
+
+instance ToExpr Expr where
+  toExpr = id
+
+instance (Integral n) => ToExpr n where
+  toExpr = Nm . toInteger
 
 -- helper methods to define Random instance over OT
 ots :: [(OT, Int)]
@@ -31,18 +80,6 @@ convertTo i = fst . head $ filter (\(_, x) -> x == i) ots
 
 convertFrom :: OT -> Int
 convertFrom ot = snd . head $ filter (\(x, _) -> x == ot) ots
-
-
--- the class and functions to enable build expressions
--- more naturally, like x = 1 `add` (2 `mul` 3)
-class ToExpr a where
-  toExpr :: a -> Expr
-
-instance ToExpr Expr where
-  toExpr = id
-
-instance (Integral n) => ToExpr n where
-  toExpr = Nm . toInteger
 
 add :: (ToExpr a, ToExpr b) => a -> b -> Expr
 add x y = Op Add (toExpr x) (toExpr y)
@@ -56,7 +93,7 @@ mul x y = Op Mul (toExpr x) (toExpr y)
 div :: (ToExpr a, ToExpr b) => a -> b -> Expr
 div x y = Op Div (toExpr x) (toExpr y)
 
--- operators to move even further
+-- operators to sugar it even further
 -- xxx = 1.+.2.-.3.*.4./.5
 -- (.+.) :: (ToExpr a, ToExpr b) => a -> b -> Expr
 -- (.+.) = add

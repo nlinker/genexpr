@@ -63,13 +63,17 @@ generate Options{..} =
       return $ Op ot e1 e2
     genT _ _ = error "Wrong argument(s)"
 
--- pretty print expression, we must omit redundant parentheses
-pprint :: Expr -> String
-pprint (Nm n) = if n < 0 then "(" ++ show n ++ ")" else show n
-pprint (Op ot e1 e2) = "(" ++ pprint e1 ++ " " ++ sign ot ++ " " ++ pprint e2 ++ ")"
+-- convE2EP guarantees:
+-- 1. NegP n is constructed only with n < 0
+-- 2. PosP n is constructed only with n >= 0
+-- 3. SumP is constructed with Add or Sub
+-- 4. ProdP is constructed with Mul or Div
+convE2EP :: Expr -> ExprP
+convE2EP (Nm n) = if n >= 0 then PosP n else NegP n
+convE2EP (Op ot e1 e2) =
+  case ot of
+    x | x == Add || x == Sub -> SumP ot (convE2EP e1) (convE2EP e2)
+    x | x == Mul || x == Div -> ProdP ot (convE2EP e1) (convE2EP e2)
+    _ -> error "convE2EP: impossible match"
 
-sign :: OT -> String
-sign Add = "+"
-sign Sub = "-"
-sign Mul = "*"
-sign Div = "/"
+pprint = show . convE2EP
