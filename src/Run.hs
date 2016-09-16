@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -7,9 +8,9 @@ import           Development.GitRev (gitHash, gitBranch, gitDirty)
 import           Data.Version       (showVersion)
 import qualified Paths_expr_gen as Paths
 
-
 run :: IO ()
-run = putStrLn versionOutput
+run =
+  putStrLn versionOutput
 
 versionOutput :: String
 versionOutput =
