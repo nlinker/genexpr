@@ -8,6 +8,8 @@ import Control.Arrow
 import Control.Monad.Random
 import Prelude hiding (div)
 
+import Debug.Trace
+
 -- the expression is either number or some operation on two args
 data Expr =
   Op OT Expr Expr |
@@ -21,8 +23,7 @@ data OT = Add | Sub | Mul | Div
 -- special variant of the expression above to be able to pretty
 -- print the expressiion (= without redundant parens).
 data ExprP =
-  NegP Integer |
-  PosP Integer |
+  NumP  Integer |
   SumP  OT ExprP ExprP | -- lower priority operations: Add or Sub
   ProdP OT ExprP ExprP   -- higher priority operations: Mul or Div
   deriving (Eq)
@@ -57,15 +58,20 @@ instance Show OT where
 -- 5. Products before division aren't put in parens:
 --      (3 * (-4)) / 3 => 3 * (-4) / 3
 -- 6.
+
 instance Show ExprP where
   show = pp []
     where
       pp :: [Bool] -> ExprP -> String
-      pp     _ (PosP p) = show p
-      pp    [] (NegP n) = show n
-      pp (b:_) (NegP n) = if b then "(" ++ show n ++ ")" else show n
-      pp xs (SumP ot e1 e2) = "(" ++ pp (False:xs) e1 ++ show ot ++ pp (True:xs) e2 ++ ")"
-      pp xs (ProdP ot e1 e2) = "(" ++ pp (False:xs) e1 ++ show ot ++ pp (True:xs) e2 ++ ")"
+      pp bs (NumP n) = if or bs && n < 0 then "(" ++ show n ++ ")" else show n
+      -- pp xs (SumP ot1 e1 e2@(SumP _ _ _)) = pp (False:xs) e1 ++ show ot1 ++ pp (True:xs) e2 ++ ")"
+      pp xs (SumP Sub e1 n@(NumP _)) =
+        pp (False:xs) e1 ++ " " ++ show Sub ++ " " ++ pp (True:xs) n
+      pp xs (SumP Sub e1 e2) =
+        pp (False:xs) e1 ++ " " ++ show Sub ++ " (" ++ pp (True:xs) e2 ++ ")"
+      pp xs (SumP ot e1 e2) =
+        pp (False:xs) e1 ++ " " ++ show ot ++ " " ++ pp (True:xs) e2
+      pp _ _ = error "!!!"
 
 
 instance Random OT where

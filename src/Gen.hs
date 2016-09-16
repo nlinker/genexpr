@@ -3,7 +3,7 @@
 
 module Gen where
 
-import Control.Applicative (liftA2)
+-- import Control.Applicative (liftA2)
 import Control.Monad.Catch
 import Control.Monad.Identity
 import Control.Monad.Random
@@ -13,6 +13,8 @@ import Prelude hiding (exp)
 import Check
 import Expr
 import Opt
+
+import Debug.Trace
 
 -- genTree construct a tree basing on the input lists
 -- given infinite lists with random contents
@@ -51,14 +53,15 @@ generate :: (MonadRandom m) => Options -> m Expr
 generate Options{..} =
   let OptN n = optN
       OptL l = optL
-  in genT (toInteger n) (toInteger l)
+  in genT (toInteger n) (toInteger l - 1)
   where
+    -- genT is 0 based, but we call them starting from 1
     genT :: (MonadRandom m) => Integer -> Integer -> m Expr
-    genT n 1 = Nm <$> getRandomR (-n, n)
-    genT n l | l > 1 = do
-      i <- getRandomR (1, l)
+    genT n 0 = Nm <$> getRandomR (-n, n)
+    genT n l | l > 0 = do
+      i <- getRandomR (0, l - 1)
       e1 <- genT n i
-      e2 <- genT n (l - i)
+      e2 <- genT n (l - i - 1)
       ot <- getRandom
       return $ Op ot e1 e2
     genT _ _ = error "Wrong argument(s)"
@@ -69,11 +72,12 @@ generate Options{..} =
 -- 3. SumP is constructed with Add or Sub
 -- 4. ProdP is constructed with Mul or Div
 convE2EP :: Expr -> ExprP
-convE2EP (Nm n) = if n >= 0 then PosP n else NegP n
+convE2EP (Nm n) = NumP n
 convE2EP (Op ot e1 e2) =
   case ot of
     x | x == Add || x == Sub -> SumP ot (convE2EP e1) (convE2EP e2)
     x | x == Mul || x == Div -> ProdP ot (convE2EP e1) (convE2EP e2)
     _ -> error "convE2EP: impossible match"
 
-pprint = show . convE2EP
+pprint :: Expr -> IO ()
+pprint e = putStrLn $ show e ++ "\n" ++ (show . convE2EP $ e)
