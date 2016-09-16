@@ -26,14 +26,6 @@ dependencies:
 - spoon
 - mtl
 - MonadRandom
-- amazonka
-- amazonka-sqs
-- lens
-- containers
-- unordered-containers
-- resourcet
-- transformers
-- bytestring
 
 executables:
   expr-gen:
