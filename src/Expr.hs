@@ -43,26 +43,14 @@ instance Show OT where
   show Mul = "*"
   show Div = "/"
 
--- rules:
--- 0. Positive literals aren't wrapped: 3 + 4
--- 1. Negative literals aren't wrapped if they are at the
---    beginning of the expression or right after the paren:
---      ((-3) + 4) => -3 + 4
---      (2 * ((-3) + 4)) => 2 * (-3 + 4)
--- 2. Sums are flattened:
---      ((3 + (-4)) + ((-5) + 6)) => 3 + (-4) + (-5) + 6
--- 3. Products are flattened:
---      ((3 * (-4)) * ((-5) * 6)) => 3 * (-4) * (-5) * 6
--- 4. Precedence rules are applied:
---      ((1 * 2) + (3 / 4)) => 1 * 2 + 3 / 4
--- 5. Products before division aren't put in parens:
---      (3 * (-4)) / 3 => 3 * (-4) / 3
--- 6.
+-- state to make pretty print possible
+type PState = [Bool]
 
+-- TODO fails for ((3 / (-3)) / (1 * (-8))) ?=> 3 / (-3) / 1 * (-8)
 instance Show ExprP where
   show = pp []
     where
-      pp :: [Bool] -> ExprP -> String
+      pp :: PState -> ExprP -> String
       pp bs (NumP n) = if or bs && n < 0 then "(" ++ show n ++ ")" else show n
       -- pp xs (SumP ot1 e1 e2@(SumP _ _ _)) = pp (False:xs) e1 ++ show ot1 ++ pp (True:xs) e2 ++ ")"
       pp xs (SumP Sub e1 n@(NumP _)) =
@@ -71,7 +59,12 @@ instance Show ExprP where
         pp (False:xs) e1 ++ " " ++ show Sub ++ " (" ++ pp (True:xs) e2 ++ ")"
       pp xs (SumP ot e1 e2) =
         pp (False:xs) e1 ++ " " ++ show ot ++ " " ++ pp (True:xs) e2
-      pp _ _ = error "!!!"
+      pp xs (ProdP ot e1@SumP{} e2) =
+        "(" ++ pp (False:xs) e1 ++ ") " ++ show ot ++ " " ++ pp (True:xs) e2
+      pp xs (ProdP ot e1 e2@SumP{}) =
+        pp (False:xs) e1 ++ " " ++ show ot ++ " (" ++ pp (True:xs) e2 ++ ")"
+      pp xs (ProdP ot e1 e2) =
+        pp (False:xs) e1 ++ " " ++ show ot ++ " " ++ pp (True:xs) e2
 
 
 instance Random OT where
