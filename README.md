@@ -10,10 +10,11 @@ Allowed arithmetic operations: addition, subtraction, multiplication, division.
 Operations have usual precedence and left associativity.
 
 Removing parentheses must satisfy the following constraints:
+
 1. Removing parentheses must not change the expression evaluation result.
 2. Removing parentheses must not result in symbol sequences, like `--`, `+-`, `/-`, `*-`.
 3. Removing parentheses must not change operation type, simplification is not the task: `2 + (-3)` ⇏ `2 - 3`.
-4. Removing parentheses can change evaluation order under associativity: `2 + (3 + 4)` => `2 + 3 + 4`.
+4. Removing parentheses can change evaluation order under associativity: `2 + (3 + 4)` ⇒ `2 + 3 + 4`.
 
 ### Goals
 
@@ -36,16 +37,16 @@ is too big.
 - Positive literals aren't wrapped: `3 + 4`
 - Negative literals aren't wrapped if they are at the
   beginning of the expression or right after the paren:
-  - `((-3) + 4)` => `-3 + 4`
-  - `(2 * ((-3) + 4))` => `2 * (-3 + 4)`
+  - `((-3) + 4)` ⇒ `-3 + 4`
+  - `(2 * ((-3) + 4))` ⇒ `2 * (-3 + 4)`
 - Sums are flattened:
-  - `((3 + (-4)) + ((-5) + 6))` => `3 + (-4) + (-5) + 6`
+  - `((3 + (-4)) + ((-5) + 6))` ⇒ `3 + (-4) + (-5) + 6`
 - Products are flattened:
-  - `((3 * (-4)) * ((-5) * 6))` => `3 * (-4) * (-5) * 6`
+  - `((3 * (-4)) * ((-5) * 6))` ⇒ `3 * (-4) * (-5) * 6`
 - Precedence rules are applied:
-  - `((1 * 2) + (3 / 4))` => `1 * 2 + 3 / 4`
+  - `((1 * 2) + (3 / 4))` ⇒ `1 * 2 + 3 / 4`
 - Products before division aren't put in parens:
-  - `(3 * (-4)) / 3` => `3 * (-4) / 3`
+  - `(3 * (-4)) / 3` ⇒ `3 * (-4) / 3`
 
 ### Examples
 | L |  N |   M |               Expression |

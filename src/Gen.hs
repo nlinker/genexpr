@@ -54,11 +54,11 @@ generate Options{..} =
   in genT (toInteger n) (toInteger l)
   where
     genT :: (MonadRandom m) => Integer -> Integer -> m Expr
-    genT n 0 = Nm <$> getRandomR (-n, n)
-    genT n l | l > 0 = do
-      i <- getRandomR (0, l - 1)
+    genT n 1 = Nm <$> getRandomR (-n, n)
+    genT n l | l > 1 = do
+      i <- getRandomR (1, l)
       e1 <- genT n i
-      e2 <- genT n (l - 1 - i)
+      e2 <- genT n (l - i)
       ot <- getRandom
       return $ Op ot e1 e2
     genT _ _ = error "Wrong argument(s)"
