@@ -43,9 +43,20 @@ instance Show OT where
   show Div = "/"
 
 -- rules:
--- 1. Negative number aren't embraced if they are at the beginning of the expression or
--- right after the paren: -3 + 4 ;  2 * (-3 + 4)
--- 2.
+-- 0. Positive literals aren't wrapped: 3 + 4
+-- 1. Negative literals aren't wrapped if they are at the
+--    beginning of the expression or right after the paren:
+--      ((-3) + 4) => -3 + 4
+--      (2 * ((-3) + 4)) => 2 * (-3 + 4)
+-- 2. Sums are flattened:
+--      ((3 + (-4)) + ((-5) + 6)) => 3 + (-4) + (-5) + 6
+-- 3. Products are flattened:
+--      ((3 * (-4)) * ((-5) * 6)) => 3 * (-4) * (-5) * 6
+-- 4. Precedence rules are applied:
+--      ((1 * 2) + (3 / 4)) => 1 * 2 + 3 / 4
+-- 5. Products before division aren't put in parens:
+--      (3 * (-4)) / 3 => 3 * (-4) / 3
+-- 6.
 instance Show ExprP where
   show (PosP n) = show n
   show (SumP ot (NegP n) e2) = show n ++ " " ++ show ot ++ " " ++ show e2

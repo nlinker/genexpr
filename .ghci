@@ -1,3 +1,6 @@
 :set -fno-warn-type-defaults
 
 import Control.Monad.Random
+
+let opt = mkOpt 5 10 10
+expr <- evalRandIO (generate opt)
