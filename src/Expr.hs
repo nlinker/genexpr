@@ -58,12 +58,14 @@ instance Show OT where
 --      (3 * (-4)) / 3 => 3 * (-4) / 3
 -- 6.
 instance Show ExprP where
-  show (PosP n) = show n
-  show (SumP ot (NegP n) e2) = show n ++ " " ++ show ot ++ " " ++ show e2
-  show (ProdP ot (NegP n) e2) = show n ++ " " ++ show ot ++ " " ++ show e2
-  show (NegP n) = "(" ++ show n ++ ")"
-  show (SumP ot e1 e2) = show e1 ++ " " ++ show ot ++ " " ++ show e2
-  show (ProdP ot e1 e2) = show e1 ++ " " ++ show ot ++ " " ++ show e2
+  show e = pp [] e
+    where
+      pp :: [Bool] -> ExprP -> String
+      pp xs (SumP ot (NegP n) e2) = show n ++ " " ++ show ot ++ " " ++ pp xs e2
+      pp xs (ProdP ot (NegP n) e2) = show n ++ " " ++ show ot ++ " " ++ pp xs e2
+      pp xs (NegP n) = "(" ++ show n ++ ")"
+      pp xs (SumP ot e1 e2) = pp xs e1 ++ " " ++ show ot ++ " " ++ pp xs e2
+      pp xs (ProdP ot e1 e2) = pp xs e1 ++ " " ++ show ot ++ " " ++ pp xs e2
 
 
 instance Random OT where
