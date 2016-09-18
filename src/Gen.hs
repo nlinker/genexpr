@@ -1,6 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
-{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Gen where
 
@@ -66,41 +65,3 @@ generate Options{..} =
       ot <- getRandom
       return $ Op ot e1 e2
     genT _ _ = error "Wrong argument(s)"
-
--- arrange expression: (2+(3+4)+5) -> (((2+3)+4)+5)
-arr :: Expr -> Expr
-arr n@Nm{} = n
-arr op@(Op ot n1@Nm{} n2@Nm{}) = op
-arr op@(Op ot e1@Op{} n2@Nm{}) = Op ot (arr e1) n2
-arr op@(Op ot e1 e2) =
-  let e1a = arr e1
-      e2a = arr e2
-      Op o2 e2' n2 = e2a
-      Op ol l1  l2 = low e2a
-      eot = Op ot e1a l1
-  in Op ol eot l2
-
-low :: Expr -> Expr
-low _n@Nm{} = error "whoa"
-low  op@(Op _ot _n1@Nm{} _e2) = op
-low _op@(Op _ot  e1@Op{} _e2) = low e1
-
-
-eg :: Expr
-eg = 1 `add` (2 `add` 3) `add` (4 `add` 5)
-
--- convE2EP guarantees:
--- 1. NegP n is constructed only with n < 0
--- 2. PosP n is constructed only with n >= 0
--- 3. SumP is constructed with Add or Sub
--- 4. ProdP is constructed with Mul or Div
-convE2EP :: Expr -> ExprP
-convE2EP (Nm n) = NumP n
-convE2EP (Op ot e1 e2) =
-  case ot of
-    x | x == Add || x == Sub -> SumP ot (convE2EP e1) (convE2EP e2)
-    x | x == Mul || x == Div -> ProdP ot (convE2EP e1) (convE2EP e2)
-    _ -> error "convE2EP: impossible match"
-
-pprint :: Expr -> IO ()
-pprint e = putStrLn $ show e ++ "\n" ++ (show . convE2EP $ e)

@@ -31,14 +31,6 @@ executable expr-gen
     , spoon
     , mtl
     , MonadRandom
-    , amazonka
-    , amazonka-sqs
-    , lens
-    , containers
-    , unordered-containers
-    , resourcet
-    , transformers
-    , bytestring
   other-modules:
       Check
       Expr
@@ -65,14 +57,6 @@ test-suite spec
     , spoon
     , mtl
     , MonadRandom
-    , amazonka
-    , amazonka-sqs
-    , lens
-    , containers
-    , unordered-containers
-    , resourcet
-    , transformers
-    , bytestring
     , hspec
     , QuickCheck
   other-modules:

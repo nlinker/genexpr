@@ -8,8 +8,6 @@ import Control.Arrow
 import Control.Monad.Random
 import Prelude hiding (div)
 
-import Debug.Trace
-
 -- the expression is either number or some operation on two args
 data Expr =
   Op OT Expr Expr |
