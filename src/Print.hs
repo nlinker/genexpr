@@ -1,11 +1,11 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Print where
-
+import Prelude hiding (div)
 import Expr
 
 e1 :: Expr
-e1 = 1 `mul` (2 `add` 3) `mul` (4 `mul` (5 `add` (6 `add` 7)))
+e1 = 1 `mul` ((2 `add` ((3 `mul` (4 `mul` 5)) `add` 6)) `mul` (7 `mul` (8 `div` 9)))
 
 arrA :: Expr -> Expr
 arrA = arr Add
@@ -24,10 +24,7 @@ arr ot ex@(Op  o e1@Op{} n2@Nm{}) =
   if ot == o
     then Op o (arr ot e1) n2
     else ex
-arr ot ex@(Op  o e1 e2) =
-  if o == ot
-    then union o (arr ot e1) (arr ot e2)
-    else ex
+arr ot _ex@(Op  o e1 e2) = union o (arr ot e1) (arr ot e2)
 
 -- union of two _arranged_ expressions
 --    o                 o1
