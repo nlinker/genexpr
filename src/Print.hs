@@ -3,42 +3,42 @@
 module Print where
 import Prelude hiding (div)
 import Expr
+import Debug.Trace
 
 e1 :: Expr
 e1 = 1 `mul` ((2 `add` ((3 `mul` (4 `mul` 5)) `add` 6)) `mul` (7 `mul` (8 `div` 9)))
 
-arrA :: Expr -> Expr
-arrA = arr Add
+e2 :: Expr
+e2 = (1 `mul` ((2 `add` ((3 `mul` 4) `mul` 5)) `add` 6)) `mul` ((7 `mul` 8) `div` 9)
 
-arrM :: Expr -> Expr
-arrM = arr Mul
+e3 :: Expr
+e3 = (((1 `mul` ((2 `add` ((3 `mul` 4) `mul` 5)) `add` 6)) `mul` 7) `mul` 8) `div` 9
+
+e4 :: Expr
+e4 = ((((1 `mul` 2) `mul` 3) `mul` 4) `mul` 5) `mul` 6
 
 -- arrange expression for a _associative_ operation type
 -- (therefore ot can be either + or *); examples:
 -- (a+(b+c)+d) -> (((a+b)+c)+d), where a, b, c, d are not Add operations
 -- (a*(b*c)*d) -> (((a*b)*c)*d), where a, b, c, d are not Mul operations
-arr :: OT -> Expr -> Expr
-arr _ot n@Nm{} = n
-arr _ot ex@(Op _o _n1@Nm{} _n2@Nm{}) = ex
-arr ot ex@(Op  o e1@Op{} n2@Nm{}) =
-  if ot == o
-    then Op o (arr ot e1) n2
-    else ex
-arr ot _ex@(Op  o e1 e2) = union o (arr ot e1) (arr ot e2)
-
--- union of two _arranged_ expressions
---    o                 o1
+--    o1                o2
 --   / \               / \
---  e1  o1  \    =>   o   y
---     / \  > e2     / \
---    x   y /       e1  x
-union :: OT -> Expr -> Expr -> Expr
-union o e1 e2 = case e2 of
-  y@Nm{}    -> Op o e1 y
-  -- Op o1 x y@Nm{} -> Op o1 (union o e1 x) y
-  Op o1 x y -> if o == o1
-    then Op o1 (union o e1 x) y
-    else Op o e1 e2
+--  a  o2      =>     o1 b2
+--     / \           / \
+--    b1 b2         a  b1
+arr :: Expr -> Expr
+-- arr a | trace ("arr " ++ show a) False = undefined
+arr n@Nm{} = n
+arr ex@(Op _o _a@Nm{} _b@Nm{}) = ex
+arr (Op  o  a@Op{}  b@Nm{}) = Op o (arr a) b
+arr (Op o1 a b@(Op o2 b1 b2)) = case (o1, o2) of
+  (Add, Add) -> arr regrouped
+  (Add, Sub) -> arr regrouped
+  (Mul, Mul) -> arr regrouped
+  (Mul, Div) -> arr regrouped
+  _          -> Op o1 (arr a) (arr b)
+  where
+    regrouped = Op o2 (Op o1 a b1) b2
 
 -- convE2EP guarantees:
 -- 1. NegP n is constructed only with n < 0
