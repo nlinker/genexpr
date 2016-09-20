@@ -1,9 +1,9 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
+{-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
 
 module Print where
 import Prelude hiding (div)
 import Expr
-import Debug.Trace
 
 e1 :: Expr
 e1 = 1 `mul` ((2 `add` ((3 `mul` (4 `mul` 5)) `add` 6)) `mul` (7 `mul` (8 `div` 9)))
@@ -32,13 +32,13 @@ arr n@Nm{} = n
 arr ex@(Op _o _a@Nm{} _b@Nm{}) = ex
 arr (Op  o  a@Op{}  b@Nm{}) = Op o (arr a) b
 arr (Op o1 a b@(Op o2 b1 b2)) = case (o1, o2) of
-  (Add, Add) -> arr regrouped
-  (Add, Sub) -> arr regrouped
-  (Mul, Mul) -> arr regrouped
-  (Mul, Div) -> arr regrouped
+  (Add, Add) -> arr regroup
+  (Add, Sub) -> arr regroup
+  (Mul, Mul) -> arr regroup
+  (Mul, Div) -> arr regroup
   _          -> Op o1 (arr a) (arr b)
   where
-    regrouped = Op o2 (Op o1 a b1) b2
+    regroup = Op o2 (Op o1 a b1) b2
 
 -- convE2EP guarantees:
 -- 1. NegP n is constructed only with n < 0
