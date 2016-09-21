@@ -30,7 +30,7 @@ data ExprP =
 -- INSTANCES --
 
 -- show expression verbatim in the convential form
--- pretty printing is done via (show . convE2EP)
+-- pretty printing is done via (show . conv2p)
 instance Show Expr where
   show (Nm n) = if n < 0 then "(" ++ show n ++ ")" else show n
   show (Op ot e1 e2) = "(" ++ show e1 ++ " " ++ show ot ++ " " ++ show e2 ++ ")"
@@ -40,30 +40,6 @@ instance Show OT where
   show Sub = "-"
   show Mul = "*"
   show Div = "/"
-
--- state to make pretty print possible
-type PState = [Bool]
-
--- TODO fails for ((3 / (-3)) / (1 * (-8))) ?=> 3 / (-3) / 1 * (-8)
-instance Show ExprP where
-  show = pp []
-    where
-      pp :: PState -> ExprP -> String
-      pp bs (NumP n) = if or bs && n < 0 then "(" ++ show n ++ ")" else show n
-      -- pp xs (SumP ot1 e1 e2@(SumP _ _ _)) = pp (False:xs) e1 ++ show ot1 ++ pp (True:xs) e2 ++ ")"
-      pp xs (SumP Sub e1 n@(NumP _)) =
-        pp (False:xs) e1 ++ " " ++ show Sub ++ " " ++ pp (True:xs) n
-      pp xs (SumP Sub e1 e2) =
-        pp (False:xs) e1 ++ " " ++ show Sub ++ " (" ++ pp (True:xs) e2 ++ ")"
-      pp xs (SumP ot e1 e2) =
-        pp (False:xs) e1 ++ " " ++ show ot ++ " " ++ pp (True:xs) e2
-      pp xs (ProdP ot e1@SumP{} e2) =
-        "(" ++ pp (False:xs) e1 ++ ") " ++ show ot ++ " " ++ pp (True:xs) e2
-      pp xs (ProdP ot e1 e2@SumP{}) =
-        pp (False:xs) e1 ++ " " ++ show ot ++ " (" ++ pp (True:xs) e2 ++ ")"
-      pp xs (ProdP ot e1 e2) =
-        pp (False:xs) e1 ++ " " ++ show ot ++ " " ++ pp (True:xs) e2
-
 
 instance Random OT where
   randomR (o1, o2) g = convertTo `first` randomR (convertFrom o1, convertFrom o2) g

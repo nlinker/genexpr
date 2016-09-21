@@ -15,7 +15,10 @@ e3 :: Expr
 e3 = (((1 `mul` ((2 `add` ((3 `mul` 4) `mul` 5)) `add` 6)) `mul` 7) `mul` 8) `div` 9
 
 e4 :: Expr
-e4 = ((((1 `mul` 2) `mul` 3) `mul` 4) `mul` 5) `mul` 6
+e4 = 1 `mul` (2 `add` 3) `mul` 4 `mul` (5 `add` 6 `add` 7)
+
+e5 :: Expr
+e5 = (3 `div` (-3)) `div` (1 `mul` (-8)) -- => 3 / (-3) / 1 * (-8)
 
 -- arrange expression for a _associative_ operation type
 -- (therefore ot can be either + or *); examples:
@@ -40,18 +43,19 @@ arr (Op o1 a b@(Op o2 b1 b2)) = case (o1, o2) of
   where
     regroup = Op o2 (Op o1 a b1) b2
 
--- convE2EP guarantees:
--- 1. NegP n is constructed only with n < 0
--- 2. PosP n is constructed only with n >= 0
--- 3. SumP is constructed with Add or Sub
--- 4. ProdP is constructed with Mul or Div
-convE2EP :: Expr -> ExprP
-convE2EP (Nm n) = NumP n
-convE2EP (Op ot e1 e2) =
-  case ot of
-    x | x == Add || x == Sub -> SumP ot (convE2EP e1) (convE2EP e2)
-    x | x == Mul || x == Div -> ProdP ot (convE2EP e1) (convE2EP e2)
-    _ -> error "convE2EP: impossible match"
+-- We arrange and then pretty print the expression, so given the expression
+-- is arranged, we can consider the following cases (in that order!):
+-- 1. (((n + e)..)..), n is always unwrapped
+-- 2. n is wrapped depeding on if it is negative or positive
+showp :: Expr -> String
+showp = pp . arr where
+  pp (Op o (Nm n) b) = show n ++ " " ++ show o ++ " " ++ pp b
+  pp (Nm n) = if n < 0 then "(" ++ show n ++ ")" else show n
+  pp (Op Add (Op Add a1 a2) b) =
+    pp a1 ++ " " ++ show Add ++ " " ++ pp a2 ++ " " ++ show Add ++ " " ++ pp b
+  pp (Op Add (Op Add a1 a2) b) =
+    pp a1 ++ " " ++ show Add ++ " " ++ pp a2 ++ " " ++ show Add ++ " " ++ pp b
+  pp _ = undefined
 
 pprint :: Expr -> IO ()
-pprint e = putStrLn $ show e ++ "\n" ++ (show . convE2EP $ e)
+pprint e = putStrLn $ show e ++ "\n" ++ showp e
