@@ -51,11 +51,15 @@ showp :: Expr -> String
 showp = pp . arr where
   pp (Op o (Nm n) b) = show n ++ " " ++ show o ++ " " ++ pp b
   pp (Nm n) = if n < 0 then "(" ++ show n ++ ")" else show n
-  pp (Op Add (Op Add a1 a2) b) =
-    pp a1 ++ " " ++ show Add ++ " " ++ pp a2 ++ " " ++ show Add ++ " " ++ pp b
-  pp (Op Add (Op Add a1 a2) b) =
-    pp a1 ++ " " ++ show Add ++ " " ++ pp a2 ++ " " ++ show Add ++ " " ++ pp b
-  pp _ = undefined
+  pp (Op Add a b) =
+    pp a ++ " " ++ show Add ++ " " ++ pp b
+  pp (Op o a b@(Op p _ _)) | o == Sub || o == Mul || o == Div =
+    if p == Add || p == Sub
+      then pp a ++ " " ++ show o ++ " (" ++ pp b ++ ")"
+      else pp a ++ " " ++ show o ++ " " ++ pp b
+  pp (Op o a b@Nm{}) | o == Sub || o == Mul || o == Div =
+    pp a ++ " " ++ show o ++ " " ++ pp b
+  pp (Op o a b) = pp a ++ " " ++ show o ++ " " ++ pp b
 
 pprint :: Expr -> IO ()
 pprint e = putStrLn $ show e ++ "\n" ++ showp e
