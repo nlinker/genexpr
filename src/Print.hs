@@ -4,21 +4,28 @@
 module Print where
 import Prelude hiding (div)
 import Expr
+import Debug.Trace
 
 e1 :: Expr
 e1 = 1 `mul` ((2 `add` ((3 `mul` (4 `mul` 5)) `add` 6)) `mul` (7 `mul` (8 `div` 9)))
 
 e2 :: Expr
-e2 = (1 `mul` ((2 `add` ((3 `mul` 4) `mul` 5)) `add` 6)) `mul` ((7 `mul` 8) `div` 9)
+e2 = (((1 `mul` ((2 `add` ((3 `mul` 4) `mul` 5)) `add` 6)) `mul` 7) `mul` 8) `div` 9
+--e4 = (-1) `mul` ((-2) `add` (-3)) `mul` (-4) `mul` ((-5) `add` (-6) `add` (-7))
 
 e3 :: Expr
-e3 = (((1 `mul` ((2 `add` ((3 `mul` 4) `mul` 5)) `add` 6)) `mul` 7) `mul` 8) `div` 9
+e3 = (3 `div` (-3)) `div` (1 `mul` (-8)) -- => 3 / (-3) / 1 * (-8)
 
-e4 :: Expr
-e4 = 1 `mul` (2 `add` 3) `mul` 4 `mul` (5 `add` 6 `add` 7)
+es :: [Expr]
+es = [
+  (-1) `sub` ((-2) `mul` (-3)),
+  (-1) `sub` ((-2) `div` (-3)),
+  ((-1) `mul` (-2)) `add` ((-3) `mul` (-4)),
+  ((-1) `mul` (-2)) `sub` ((-3) `mul` (-4)),
+  ((-1) `add` (-2)) `mul` ((-3) `add` (-4)),
+  ((-1) `sub` (-2)) `sub` ((-3) `sub` (-4))
+  ]
 
-e5 :: Expr
-e5 = (3 `div` (-3)) `div` (1 `mul` (-8)) -- => 3 / (-3) / 1 * (-8)
 
 -- arrange expression for a _associative_ operation type
 -- (therefore ot can be either + or *); examples:
@@ -49,11 +56,13 @@ arr (Op o1 a b@(Op o2 b1 b2)) = case (o1, o2) of
 -- 2. n is wrapped depeding on if it is negative or positive
 showp :: Expr -> String
 showp = pp . arr where
-  pp (Op o (Nm n) b) = show n ++ " " ++ show o ++ " " ++ pp b
+  --pp a | trace ("pp " ++ show a) False = undefined
   pp (Nm n) = if n < 0 then "(" ++ show n ++ ")" else show n
   pp (Op Add a b) =
     pp a ++ " " ++ show Add ++ " " ++ pp b
+  pp (Op o (Nm n) b@(Op _ _ _)) = show n ++ " " ++ show o ++ " " ++ pp b
   pp (Op o a b@(Op p _ _)) | o == Sub || o == Mul || o == Div =
+    -- trace ("o = " ++ show o ++ " a = " ++ show a ++ " b = " ++ show b) $
     if p == Add || p == Sub
       then pp a ++ " " ++ show o ++ " (" ++ pp b ++ ")"
       else pp a ++ " " ++ show o ++ " " ++ pp b
@@ -63,3 +72,6 @@ showp = pp . arr where
 
 pprint :: Expr -> IO ()
 pprint e = putStrLn $ show e ++ "\n" ++ showp e
+
+pprints :: [Expr] -> IO ()
+pprints = mapM_ pprint
