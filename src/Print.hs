@@ -56,19 +56,32 @@ arr (Op o1 a b@(Op o2 b1 b2)) = case (o1, o2) of
 -- 2. n is wrapped depeding on if it is negative or positive
 showp :: Expr -> String
 showp = pp . arr where
+  wrap :: Expr -> [OT] -> String
+  wrap e ots = case e of
+    n@Nm{}   -> pp n
+    Op o _ _ -> if o `elem` ots then "(" ++ pp e ++ ")" else pp e
+
+  pp :: Expr -> String
   --pp a | trace ("pp " ++ show a) False = undefined
   pp (Nm n) = if n < 0 then "(" ++ show n ++ ")" else show n
+  pp (Op o (Nm na) (Nm nb)) = show na ++ " " ++ show o ++ " " ++ pp (Nm nb)
   pp (Op Add a b) =
-    pp a ++ " " ++ show Add ++ " " ++ pp b
-  pp (Op o (Nm n) b@(Op _ _ _)) = show n ++ " " ++ show o ++ " " ++ pp b
-  pp (Op o a b@(Op p _ _)) | o == Sub || o == Mul || o == Div =
-    -- trace ("o = " ++ show o ++ " a = " ++ show a ++ " b = " ++ show b) $
-    if p == Add || p == Sub
-      then pp a ++ " " ++ show o ++ " (" ++ pp b ++ ")"
-      else pp a ++ " " ++ show o ++ " " ++ pp b
-  pp (Op o a b@Nm{}) | o == Sub || o == Mul || o == Div =
-    pp a ++ " " ++ show o ++ " " ++ pp b
-  pp (Op o a b) = pp a ++ " " ++ show o ++ " " ++ pp b
+    let x = wrap a []
+        y = wrap b []
+    in x ++ " " ++ show Add ++ " " ++ y
+  pp (Op Sub a b) =
+    let x = wrap a []
+        y = wrap b [Add, Sub]
+    in x ++ " " ++ show Sub ++ " " ++ y
+  pp (Op Mul a b) =
+    let x = wrap a [Add, Sub]
+        y = wrap b [Add, Sub]
+    in x ++ " " ++ show Mul ++ " " ++ y
+  pp (Op Div a b) =
+    let x = wrap a [Add, Sub]
+        y = wrap b [Add, Sub, Mul, Div]
+    in x ++ " " ++ show Div ++ " " ++ y
+
 
 pprint :: Expr -> IO ()
 pprint e = putStrLn $ show e ++ "\n" ++ showp e
