@@ -56,38 +56,49 @@ arr (Op o1 a b@(Op o2 b1 b2)) = case (o1, o2) of
 -- 2. n is wrapped depeding on if it is negative or positive
 showp :: Expr -> String
 showp = pp False . arr where
-  wrap :: Expr -> [OT] -> String
-  wrap e ots = case e of
-    n@Nm{}   -> pp False n
-    Op o _ _ -> if o `elem` ots then "(" ++ pp False e ++ ")" else pp False e
+
+  wrapF = wrap False
+  wrapT = wrap True
+
+  wrap :: Bool -> Expr -> [OT] -> String
+  wrap f e ots = case e of
+    n@Nm{}   -> pp f n
+    Op o _ _ -> if o `elem` ots
+      then "(" ++ pp f e ++ ")"
+      else pp f e
 
   pp :: Bool -> Expr -> String
-  --pp lw a | trace ("pp " ++ show a) False = undefined
+  --pp f a | trace ("pp " ++ show a) False = undefined
   pp _ (Nm n) = if n < 0 then "(" ++ show n ++ ")" else show n
-  pp lw (Op o a@(Nm na) b@(Nm _)) =
-    -- wrap the left
-    if lw
-      then pp lw a ++ " " ++ show o ++ " " ++ pp lw b
-      else show na ++ " " ++ show o ++ " " ++ pp lw b
-  pp _ (Op Add a b) =
-    let x = wrap a []
+  pp f (Op o a@(Nm na) b@(Nm _)) =
+    if f -- wrap the leftest negative number
+      then pp f a ++ " " ++ show o ++ " " ++ pp f b
+      else show na ++ " " ++ show o ++ " " ++ pp f b
+  pp f (Op Add a b) =
+    let x = wrap f a []
         -- special case 1 + (((-2) * 3) * 4)
-        -- should be 1 + (-2) * 3 * 4
-        y = wrap b []
+        -- the subexpression is not wrapped, but the leftest number in
+        -- the subexpression should be wrapped if it is negantive
+        -- so 1 + (((-2) * 3) * 4) => 1 + (-2) * 3 * 4
+        -- or 1 + (((-2) / 3) - 4) => 1 + (-2) / 3 - 4
+        y = case b of
+          Op o _ _ | o `elem` [Mul, Div] -> wrapT b []
+          _                              -> wrapF b []
     in x ++ " " ++ show Add ++ " " ++ y
-  pp _ (Op Sub a b) =
-    let x = wrap a []
-        y = wrap b [Add, Sub]
+  pp f (Op Sub a b) =
+    let x = wrap f a []
+        y = case b of
+          Op o _ _ | o `elem` [Mul, Div] -> wrapT b [Add, Sub]
+          _                              -> wrapF b [Add, Sub]
     in x ++ " " ++ show Sub ++ " " ++ y
-  pp _ (Op Mul a b) =
-    let x = wrap a [Add, Sub]
-        y = wrap b [Add, Sub]
+  pp f (Op Mul a b) =
+    let x = wrap f a [Add, Sub]
+        y = wrap f b [Add, Sub]
     in x ++ " " ++ show Mul ++ " " ++ y
-  pp _ (Op Div a b) =
-    let x = wrap a [Add, Sub]
-        y = wrap b [Add, Sub, Mul, Div]
+  pp f (Op Div a b) =
+    let x = wrap f a [Add, Sub]
+        y = wrap f b [Add, Sub, Mul, Div]
     in x ++ " " ++ show Div ++ " " ++ y
-
 
 pprint :: Expr -> IO ()
 pprint e = putStrLn $ show e ++ "\n" ++ showp e
