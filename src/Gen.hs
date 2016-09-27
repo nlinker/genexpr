@@ -10,11 +10,8 @@ import Control.Monad.Random
 import Data.Typeable (Typeable)
 import Prelude hiding (exp)
 
-import Check
 import Expr
 import Opt
-
-import Debug.Trace
 
 -- genTree construct a tree basing on the input lists
 -- given infinite lists with random contents

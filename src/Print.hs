@@ -4,7 +4,6 @@
 module Print where
 import Prelude hiding (div)
 import Expr
-import Debug.Trace
 
 e1 :: Expr
 e1 = 1 `mul` ((2 `add` ((3 `mul` (4 `mul` 5)) `add` 6)) `mul` (7 `mul` (8 `div` 9)))
@@ -54,54 +53,56 @@ arr (Op o1 a b@(Op o2 b1 b2)) = case (o1, o2) of
 -- is arranged, we can consider the following cases (in that order!):
 -- 1. (((n + e)..)..), n is always unwrapped
 -- 2. n is wrapped depeding on if it is negative or positive
-showp :: Expr -> String
-showp = pp False . arr where
-
-  wrapF = wrap False
-  wrapT = wrap True
+pp :: Expr -> String
+pp = pp0 False . arr where
 
   wrap :: Bool -> Expr -> [OT] -> String
   wrap f e ots = case e of
-    n@Nm{}   -> pp f n
+    n@Nm{}   -> pp0 f n
     Op o _ _ -> if o `elem` ots
-      then "(" ++ pp f e ++ ")"
-      else pp f e
+      then "(" ++ pp0 f e ++ ")"
+      else pp0 f e
 
-  pp :: Bool -> Expr -> String
-  --pp f a | trace ("pp " ++ show a) False = undefined
-  pp _ (Nm n) = if n < 0 then "(" ++ show n ++ ")" else show n
-  pp f (Op o a@(Nm na) b@(Nm _)) =
+  -- special case 1 + (((-2) * 3) * 4)
+  -- the subexpression is not wrapped, but the leftest number in
+  -- the subexpression should be wrapped if it is negantive
+  -- so 1 + (((-2) * 3) * 4) => 1 + (-2) * 3 * 4
+  -- or 1 + (((-2) / 3) - 4) => 1 + (-2) / 3 - 4
+  wrapSpecial :: Expr -> [OT] -> String
+  wrapSpecial e ots = case e of
+    Op Mul _ _ -> wrap True e ots
+    Op Div _ _ -> wrap True e ots
+    _          -> wrap False e ots
+
+  pp0 :: Bool -> Expr -> String
+  -- pp f a | trace ("pp " ++ show a) False = undefined
+  pp0 _ (Nm n) = if n < 0 then "(" ++ show n ++ ")" else show n
+  pp0 f (Op o a@(Nm na) b@(Nm _)) =
     if f -- wrap the leftest negative number
-      then pp f a ++ " " ++ show o ++ " " ++ pp f b
-      else show na ++ " " ++ show o ++ " " ++ pp f b
-  pp f (Op Add a b) =
+      then pp0 f a ++ " " ++ show o ++ " " ++ pp0 f b
+      else show na ++ " " ++ show o ++ " " ++ pp0 f b
+  pp0 f (Op Add a b) =
     let x = wrap f a []
-        -- special case 1 + (((-2) * 3) * 4)
-        -- the subexpression is not wrapped, but the leftest number in
-        -- the subexpression should be wrapped if it is negantive
-        -- so 1 + (((-2) * 3) * 4) => 1 + (-2) * 3 * 4
-        -- or 1 + (((-2) / 3) - 4) => 1 + (-2) / 3 - 4
-        y = case b of
-          Op o _ _ | o `elem` [Mul, Div] -> wrapT b []
-          _                              -> wrapF b []
+        y = wrapSpecial b []
     in x ++ " " ++ show Add ++ " " ++ y
-  pp f (Op Sub a b) =
+  pp0 f (Op Sub a b) =
     let x = wrap f a []
-        y = case b of
-          Op o _ _ | o `elem` [Mul, Div] -> wrapT b [Add, Sub]
-          _                              -> wrapF b [Add, Sub]
+        y = wrapSpecial b [Add, Sub]
     in x ++ " " ++ show Sub ++ " " ++ y
-  pp f (Op Mul a b) =
+  pp0 f (Op Mul a b) =
     let x = wrap f a [Add, Sub]
         y = wrap f b [Add, Sub]
     in x ++ " " ++ show Mul ++ " " ++ y
-  pp f (Op Div a b) =
+  pp0 f (Op Div a b) =
     let x = wrap f a [Add, Sub]
         y = wrap f b [Add, Sub, Mul, Div]
     in x ++ " " ++ show Div ++ " " ++ y
 
-pprint :: Expr -> IO ()
-pprint e = putStrLn $ show e ++ "\n" ++ showp e
+show2 :: Expr -> String
+show2 e = show e ++ "\n" ++ pp e
 
-pprints :: [Expr] -> IO ()
-pprints = mapM_ pprint
+ess :: [Expr]
+ess = [Op o2 (Op o1 (Nm (-1)) (Nm (-2))) (Op o3 (Nm (-3)) (Nm (-4))) |
+  o1 <- ots, o2 <- ots, o3 <- ots]
+  where
+    ots = [Add, Sub, Mul, Div]
