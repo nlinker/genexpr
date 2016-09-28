@@ -22,14 +22,15 @@ executable expr-gen
   ghc-options: -Wall -fno-warn-name-shadowing -fwarn-incomplete-record-updates -fwarn-incomplete-uni-patterns
   build-depends:
       base ==4.*
+    , combinat
     , exceptions
-    , getopt-generics ==0.12.* || ==0.13.*
+    , getopt-generics
     , ghc
     , ghc-paths
     , gitrev
-    , combinat
-    , spoon
+    , logict
     , mtl
+    , spoon
     , MonadRandom
   other-modules:
       Check
@@ -49,14 +50,15 @@ test-suite spec
   ghc-options: -Wall -fno-warn-name-shadowing -fwarn-incomplete-record-updates -fwarn-incomplete-uni-patterns
   build-depends:
       base ==4.*
+    , combinat
     , exceptions
-    , getopt-generics ==0.12.* || ==0.13.*
+    , getopt-generics
     , ghc
     , ghc-paths
     , gitrev
-    , combinat
-    , spoon
+    , logict
     , mtl
+    , spoon
     , MonadRandom
     , hspec
     , QuickCheck

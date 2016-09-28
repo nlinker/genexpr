@@ -56,6 +56,13 @@ arr (Op o1 a b@(Op o2 b1 b2)) = case (o1, o2) of
 pp :: Expr -> String
 pp = pp0 False . arr where
 
+  -- wrap expression in parens when the expression is
+  -- the expected operation. E.g. in case of this tree
+  --    *
+  --   / \     when ? = + or -, b1 ? b2 should be wrapped:
+  --  a   ?      a * (b1 + b2)
+  --     / \   when ? = * or /, b1 ? b2 should not:
+  --    b1 b2    a * b1 / b2
   wrap :: Bool -> Expr -> [OT] -> String
   wrap f e ots = case e of
     n@Nm{}   -> pp0 f n
@@ -78,7 +85,7 @@ pp = pp0 False . arr where
   -- pp f a | trace ("pp " ++ show a) False = undefined
   pp0 _ (Nm n) = if n < 0 then "(" ++ show n ++ ")" else show n
   pp0 f (Op o a@(Nm na) b@(Nm _)) =
-    if f -- wrap the leftest negative number
+    if f -- wrap the leftest negative number, see wrapSpecial
       then pp0 f a ++ " " ++ show o ++ " " ++ pp0 f b
       else show na ++ " " ++ show o ++ " " ++ pp0 f b
   pp0 f (Op Add a b) =
