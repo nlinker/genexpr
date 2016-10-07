@@ -86,10 +86,3 @@ pp = pp0 False . arrange where
 
 show2 :: Expr -> String
 show2 e = show e ++ "\n" ++ pp e
-
-ess :: [Expr]
-ess = [((-1) `o2` (-2)) `o1` ((-3) `o3` (-4)) |
-        o1 <- ops, o2 <- ops, o3 <- ops]
-  where
-    ops :: (ToExpr a, ToExpr b) => [a -> b -> Expr]
-    ops = [add, sub, mul, div]

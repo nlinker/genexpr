@@ -19,6 +19,7 @@ import Test.QuickCheck
 import Prelude hiding (div, exp)
 
 import Check
+import Expr
 import Opt
 import Gen
 import Run
@@ -114,3 +115,10 @@ es = [
   ((-1) `add` (-2)) `mul` ((-3) `add` (-4)),
   ((-1) `sub` (-2)) `sub` ((-3) `sub` (-4))
   ]
+
+ess :: [Expr]
+ess = [((-1) `o2` (-2)) `o1` ((-3) `o3` (-4)) |
+        o1 <- ops, o2 <- ops, o3 <- ops]
+  where
+    ops :: (ToExpr a, ToExpr b) => [a -> b -> Expr]
+    ops = [add, sub, mul, div]
