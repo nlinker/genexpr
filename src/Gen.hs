@@ -35,19 +35,23 @@ genTree _n _bs _ops _xs = Nothing
 
 data GenException =
   ArgumentException |
-  ConfigExcepiton
+  ConfigException
     deriving (Show, Typeable)
 
 instance Exception GenException
 
--- pure expression generator, which evaluates
--- and generates the expression. It may fail because:
--- 1. There is division by zero
--- 2. There is non-integer division
--- 3. There is not enough items in the lists
--- getT :: (MonadRandom m, MonadThrow m) => Int -> m Expr
-generate :: (MonadRandom m) => Options -> m Expr
-generate Options{..} =
+-- Almost unrestricted expression generator, that provides only that
+-- 1. The expression tree is random
+-- 2. The number of literals is L
+-- 3. Each literal n is bounded -N <= n <= N
+--
+-- However it is NOT guaranteed that the expression
+-- 1. is valid and integer
+-- 2. evaluates to number m so that -M <= m <= M
+--
+-- see the function `generate` for the complete
+generateU :: (MonadRandom m) => Options -> m Expr
+generateU Options{..} =
   let OptN n = optN
       OptL l = optL
   in genT (toInteger n) (toInteger l - 1)

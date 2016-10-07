@@ -18,16 +18,12 @@ data Expr =
 data OT = Add | Sub | Mul | Div
   deriving (Eq, Ord)
 
--- special variant of the expression above to be able to pretty
--- print the expressiion (= without redundant parens).
-data ExprP =
-  NumP  Integer |
-  SumP  OT ExprP ExprP | -- lower priority operations: Add or Sub
-  ProdP OT ExprP ExprP   -- higher priority operations: Mul or Div
-  deriving (Eq)
+-- the class and functions to enable build expressions
+-- more naturally, like x = 1 `add` (2 `mul` 3)
+-- see functions add, sub, mul, div below
+class ToExpr a where
+  toExpr :: a -> Expr
 
----------------
--- INSTANCES --
 
 -- show expression verbatim in the convential form
 -- pretty printing is done via (show . conv2p)
@@ -45,17 +41,12 @@ instance Random OT where
   randomR (o1, o2) g = convertTo `first` randomR (convertFrom o1, convertFrom o2) g
   random g = convertTo `first` randomR (0, 3) g
 
--- the class and functions to enable build expressions
--- more naturally, like x = 1 `add` (2 `mul` 3)
--- see funcions add, sub, mul, div
-class ToExpr a where
-  toExpr :: a -> Expr
-
 instance ToExpr Expr where
   toExpr = id
 
 instance (Integral n) => ToExpr n where
   toExpr = Nm . toInteger
+
 
 -- helper methods to define Random instance over OT
 ots :: [(OT, Int)]

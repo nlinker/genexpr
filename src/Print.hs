@@ -5,27 +5,6 @@ module Print where
 import Prelude hiding (div)
 import Expr
 
-e1 :: Expr
-e1 = 1 `mul` ((2 `add` ((3 `mul` (4 `mul` 5)) `add` 6)) `mul` (7 `mul` (8 `div` 9)))
-
-e2 :: Expr
-e2 = (((1 `mul` ((2 `add` ((3 `mul` 4) `mul` 5)) `add` 6)) `mul` 7) `mul` 8) `div` 9
---e4 = (-1) `mul` ((-2) `add` (-3)) `mul` (-4) `mul` ((-5) `add` (-6) `add` (-7))
-
-e3 :: Expr
-e3 = (3 `div` (-3)) `div` (1 `mul` (-8)) -- => 3 / (-3) / 1 * (-8)
-
-es :: [Expr]
-es = [
-  (-1) `sub` ((-2) `mul` (-3)),
-  (-1) `sub` ((-2) `div` (-3)),
-  ((-1) `mul` (-2)) `add` ((-3) `mul` (-4)),
-  ((-1) `mul` (-2)) `sub` ((-3) `mul` (-4)),
-  ((-1) `add` (-2)) `mul` ((-3) `add` (-4)),
-  ((-1) `sub` (-2)) `sub` ((-3) `sub` (-4))
-  ]
-
-
 -- arrange expression for a _associative_ operation type
 -- (therefore ot can be either + or *); examples:
 -- (a+(b+c)+d) -> (((a+b)+c)+d), where a, b, c, d are not Add operations
@@ -35,17 +14,17 @@ es = [
 --  a  o2      =>     o1 b2
 --     / \           / \
 --    b1 b2         a  b1
-arr :: Expr -> Expr
+arrange :: Expr -> Expr
 -- arr a | trace ("arr " ++ show a) False = undefined
-arr n@Nm{} = n
-arr ex@(Op _o _a@Nm{} _b@Nm{}) = ex
-arr (Op  o  a@Op{}  b@Nm{}) = Op o (arr a) b
-arr (Op o1 a b@(Op o2 b1 b2)) = case (o1, o2) of
-  (Add, Add) -> arr regroup
-  (Add, Sub) -> arr regroup
-  (Mul, Mul) -> arr regroup
-  (Mul, Div) -> arr regroup
-  _          -> Op o1 (arr a) (arr b)
+arrange n@Nm{} = n
+arrange ex@(Op _o _a@Nm{} _b@Nm{}) = ex
+arrange (Op  o  a@Op{}  b@Nm{}) = Op o (arrange a) b
+arrange (Op o1 a b@(Op o2 b1 b2)) = case (o1, o2) of
+  (Add, Add) -> arrange regroup
+  (Add, Sub) -> arrange regroup
+  (Mul, Mul) -> arrange regroup
+  (Mul, Div) -> arrange regroup
+  _          -> Op o1 (arrange a) (arrange b)
   where
     regroup = Op o2 (Op o1 a b1) b2
 
@@ -54,7 +33,7 @@ arr (Op o1 a b@(Op o2 b1 b2)) = case (o1, o2) of
 -- 1. (((n + e)..)..), n is always unwrapped
 -- 2. n is wrapped depeding on if it is negative or positive
 pp :: Expr -> String
-pp = pp0 False . arr where
+pp = pp0 False . arrange where
 
   -- wrap expression in parens when the expression is
   -- the expected operation. E.g. in case of this tree
@@ -65,14 +44,14 @@ pp = pp0 False . arr where
   --    b1 b2    a * b1 / b2
   wrap :: Bool -> Expr -> [OT] -> String
   wrap f e ots = case e of
-    n@Nm{}   -> pp0 f n
+    Nm n     -> pp0 f (Nm n)
     Op o _ _ -> if o `elem` ots
       then "(" ++ pp0 f e ++ ")"
       else pp0 f e
 
   -- special case 1 + (((-2) * 3) * 4)
-  -- the subexpression is not wrapped, but the leftest number in
-  -- the subexpression should be wrapped if it is negantive
+  -- the sub-expression is not wrapped, but the leftest number in
+  -- the sub-expression should be wrapped if it is negantive
   -- so 1 + (((-2) * 3) * 4) => 1 + (-2) * 3 * 4
   -- or 1 + (((-2) / 3) - 4) => 1 + (-2) / 3 - 4
   wrapSpecial :: Expr -> [OT] -> String
@@ -109,7 +88,8 @@ show2 :: Expr -> String
 show2 e = show e ++ "\n" ++ pp e
 
 ess :: [Expr]
-ess = [Op o2 (Op o1 (Nm (-1)) (Nm (-2))) (Op o3 (Nm (-3)) (Nm (-4))) |
-  o1 <- ots, o2 <- ots, o3 <- ots]
+ess = [((-1) `o2` (-2)) `o1` ((-3) `o3` (-4)) |
+        o1 <- ops, o2 <- ops, o3 <- ops]
   where
-    ots = [Add, Sub, Mul, Div]
+    ops :: (ToExpr a, ToExpr b) => [a -> b -> Expr]
+    ops = [add, sub, mul, div]

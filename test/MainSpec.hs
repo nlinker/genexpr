@@ -94,3 +94,23 @@ prop_Merge xs (ys :: [Int]) =
     --collect (msort [length xs, length ys]) $
     --collect (length xs + length ys) $
     ordered (xs `merge` ys)
+
+e1 :: Expr
+e1 = 1 `mul` ((2 `add` ((3 `mul` (4 `mul` 5)) `add` 6)) `mul` (7 `mul` (8 `div` 9)))
+
+e2 :: Expr
+e2 = (((1 `mul` ((2 `add` ((3 `mul` 4) `mul` 5)) `add` 6)) `mul` 7) `mul` 8) `div` 9
+--e4 = (-1) `mul` ((-2) `add` (-3)) `mul` (-4) `mul` ((-5) `add` (-6) `add` (-7))
+
+e3 :: Expr
+e3 = (3 `div` (-3)) `div` (1 `mul` (-8)) -- => 3 / (-3) / 1 * (-8)
+
+es :: [Expr]
+es = [
+  (-1) `sub` ((-2) `mul` (-3)),
+  (-1) `sub` ((-2) `div` (-3)),
+  ((-1) `mul` (-2)) `add` ((-3) `mul` (-4)),
+  ((-1) `mul` (-2)) `sub` ((-3) `mul` (-4)),
+  ((-1) `add` (-2)) `mul` ((-3) `add` (-4)),
+  ((-1) `sub` (-2)) `sub` ((-3) `sub` (-4))
+  ]
