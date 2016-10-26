@@ -68,9 +68,13 @@ is too big.
 3. Run `exprgen --help` for further instructions
    Example:
    `exprgen -l 3 -n 10 -m 20`
-   
+
    Or from `ghci`:
 ```
+λ> import Control.Arrow
+λ> import Gen
+
 λ> let opt = mkOpt 5 10 100  -- L N M
-λ> putStrLn =<< show2 <$> evalRandIO (generate opt)
+λ> putStrLn =<< pp <$> evalRandIO (generateU opt)
+λ> putStrLn =<< (show . first pp) <$> (evalRandIO $ generateC opt)
 ```

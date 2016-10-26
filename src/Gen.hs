@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 
 module Gen where
@@ -8,10 +9,18 @@ import Control.Monad.Catch
 import Control.Monad.Identity
 import Control.Monad.Random
 import Data.Typeable (Typeable)
+import Data.Ratio (Rational)
 import Prelude hiding (exp)
 
 import Expr
 import Opt
+
+data GenException =
+  ArgumentException |
+  ConfigException
+    deriving (Show, Typeable)
+
+instance Exception GenException
 
 -- genTree construct a tree basing on the input lists
 -- given infinite lists with random contents
@@ -32,13 +41,6 @@ genTree n (b:bs) (op:ops) (x:xs) = do
       then Op op exp (Nm x)
       else Op op (Nm x) exp
 genTree _n _bs _ops _xs = Nothing
-
-data GenException =
-  ArgumentException |
-  ConfigException
-    deriving (Show, Typeable)
-
-instance Exception GenException
 
 -- Almost unrestricted expression generator, that provides only that
 -- 1. The expression tree is random
@@ -66,3 +68,29 @@ generateU Options{..} =
       ot <- getRandom
       return $ Op ot e1 e2
     genT _ _ = error "Wrong argument(s)"
+
+-- generate and calculate the Rational result
+generateC :: (MonadRandom m) => Options -> m (Expr, Rational)
+generateC Options{..} =
+  let OptN n = optN
+      OptL l = optL
+  in genT (toInteger n) (toInteger l - 1)
+  where
+    genT :: (MonadRandom m) => Integer -> Integer -> m (Expr, Rational)
+    genT n 0 = do
+      r <- getRandomR (-n, n)
+      return (Nm r, toRational r)
+    genT n l | l > 0 = do
+      i <- getRandomR (0, l - 1)
+      (e1, r1) <- genT n i
+      (e2, r2) <- genT n (l - i - 1)
+      ot <- getRandom
+      if ot == Div && r2 == 0
+        then return (Op Add e1 e2, r1 + r2)
+        else return (Op ot e1 e2, operation ot r1 r2)
+    genT _ _ = error "Wrong argument(s)"
+    operation :: OT -> Rational -> Rational -> Rational
+    operation Add = (+)
+    operation Sub = (-)
+    operation Mul = (*)
+    operation Div = (/)
