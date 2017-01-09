@@ -18,11 +18,11 @@ import Data.Text              (Text)
 type Key = Text
 type Val = Text
 data OpsF a b next = Get Key (Val -> next)
-                | Put Key Val next
-                | Transact (OpsM a b) next
-                  deriving (Functor)
+                  | Put Key Val next
+                  | Transact (OpsM a b) next
+                    deriving (Functor)
 
-type OpsM a = Free (OpsF a )
+type OpsM a = Free (OpsF a m)
 
 -- magic
 makeFree ''OpsF
