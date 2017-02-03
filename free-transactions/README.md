@@ -1,7 +1,7 @@
 # How to make transactions in Free monads
 
 Typical DSL algebra looks like this:
-```
+```haskell
 type Action n v i = FreeT (ActionF n v i)
 
 data ActionF n v i a =
@@ -21,7 +21,7 @@ makeFree ''ActionF
 But if we extend this DSL with `Transact Action` variant, it does not typecheck.
 
 There is a variant to use GADTs to encode the algebra:
-```
+```haskell
 -- from https://github.com/dhess/free-experiments/blob/3e878ec743df9045ea9b76c85f8184e38d0807e2/src/RetryTransTH.hs
 data RetryF m next where
   Output    :: String -> next -> RetryF m next
