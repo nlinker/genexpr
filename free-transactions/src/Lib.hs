@@ -10,16 +10,34 @@ module Lib where
 
 import Prelude hiding (lookup)
 import Control.Monad.Free
-import Control.Monad.Trans.Free (FreeT)
+import Control.Monad          (void)
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Trans.Free (FreeT)
 import Control.Monad.Free.TH  (makeFree, makeFreeCon)
 import Data.IORef             (IORef, newIORef, modifyIORef, readIORef)
 import System.IO.Unsafe       (unsafePerformIO)
-import Data.ByteString.Lazy   (ByteString)
-import Data.Text              (Text, pack, unpack)
+import Data.Functor.Contravariant (contramap)
+import Data.Int               (Int32, Int64)
 import Data.HashMap           (Map, empty, insert, lookup)
 import Data.Monoid            ((<>))
 import Data.Maybe             (fromMaybe)
+import Data.Text              (Text, pack, unpack)
+
+
+import qualified Hasql.Transaction as HT
+import qualified Hasql.Transaction.Sessions as HTS
+import qualified Hasql.Connection as HC
+import qualified Hasql.Session as HS
+import qualified Hasql.Query as HQ
+import qualified Hasql.Encoders as HE
+import qualified Hasql.Decoders as HD
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BL
+
+data Stuff = Stuff
+  { name :: Text
+  , age :: Int
+  }
 
 type Key = Text
 type Val = Text
@@ -67,6 +85,7 @@ foo = do
     insert k1 vn1 $
     insert k2 vn2 empty
 
+
 -- now run it in the IO
 runOpsIO :: MonadIO m => Ops a -> m a
 runOpsIO = iterM run where
@@ -91,6 +110,67 @@ runOpsIO = iterM run where
       globalModifyIndent (\x -> x - 1)
       putStrLn $ unpack $ indent <> "end transaction"
       return r
+
+defaultSettings :: HC.Settings
+defaultSettings = HC.settings dbHost dbPort dbUser dbPassword dbDatabase
+  where
+    dbHost = "localhost"
+    dbPort = 5432
+    dbUser = "postgres"
+    dbPassword = "postgres"
+    dbDatabase = "notification_db"
+
+insertStuff :: Stuff -> HS.Session Int32
+insertStuff stuff = HS.query stuff stmt
+  where
+    stmt = HQ.statement sqlText encoder decoder True
+    sqlText = "INSERT INTO stuff (name, age) VALUES ($1) RETURNING id;"
+    encoder =
+      contramap name (HE.value HE.text) <>
+      contramap (fromIntegral . age) (HE.value HE.int4)
+    decoder =
+      HD.singleRow (HD.value HD.int4)
+
+readAllStuff :: HS.Session [Stuff]
+readAllStuff = HS.query () stmt
+  where
+    stmt = HQ.statement sqlText encoder decoder True
+    sqlText = "SELECT id, name, age FROM stuff;"
+    encoder =
+      HE.unit
+    decoder =
+      HD.rowsList $ Stuff <$>
+        HD.value HD.text <*>
+        (fromIntegral <$> HD.value HD.int4)
+
+
+sqls :: [BS.ByteString]
+sqls =
+  [ "SELECT 1;"
+  , "SELECT 2;"
+  , "SELECT 3;"
+  , "SELECT 4;"
+  ]
+
+exampleTransaction :: HS.Session ()
+exampleTransaction = HTS.transaction HT.ReadCommitted HT.Write trans
+  where
+    prepareSqlExec :: BS.ByteString -> HQ.Query () ()
+    prepareSqlExec sql = HQ.statement sql HE.unit HD.unit False
+
+    queries :: [HQ.Query () ()]
+    queries = prepareSqlExec <$> sqls
+
+    trans :: HT.Transaction ()
+    trans = void (sequence $ HT.query () <$> queries)
+
+kick :: IO ()
+kick = do
+  connE <- HC.acquire defaultSettings
+  runE <- case connE of
+    Left err -> error $ show err
+    Right conn -> HS.run exampleTransaction conn
+  print runE
 
 -- global hash map
 {-# NOINLINE _globalKV #-}
