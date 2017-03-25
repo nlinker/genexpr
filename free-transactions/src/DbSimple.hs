@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module DbSimple where
 
-import Prelude hiding (lookup)
+import Prelude hiding (id, lookup)
 import Control.Monad.Free     (iterM)
 import Control.Monad.Random   (MonadRandom)
 import Control.Monad          (void, when)
@@ -19,8 +20,8 @@ import Data.Maybe             (fromMaybe)
 import Data.Text              (Text, pack, unpack)
 
 import Data.Pool (Pool, createPool, withResource)
-import Database.PostgreSQL.Simple (Query, ConnectInfo(..), Connection,
-  Only, query, connect, close, withTransaction, execute)
+import Database.PostgreSQL.Simple (Query, ConnectInfo(..), Connection, Only,
+  query, connect, close, withTransaction, execute)
 import Database.PostgreSQL.Simple.SqlQQ
 import Database.PostgreSQL.Simple.FromRow (FromRow, fromRow, field)
 import Database.PostgreSQL.Simple.ToRow (ToRow, toRow)
@@ -40,11 +41,24 @@ mainSimple :: IO ()
 mainSimple = do
   pool <- createPool (connect defaultSettings) close 10 0.5 10
   stuffs <- withTx pool $ \conn -> do
-    execute conn stuffInsert (Stuff 0 "stuff1" 12)
-    execute conn stuffInsert (Stuff 0 "stuff2" 23)
-    execute conn stuffInsert (Stuff 0 "stuff3" 34)
-    return $ execute conn stuffSelectAll
+    x1 <- stuffInsert conn (Stuff 0 "stuff1" 12)
+    print x1
+    x2 <- stuffInsert conn (Stuff 0 "stuff2" 23)
+    print x2
+    x3 <- stuffInsert conn (Stuff 0 "stuff3" 34)
+    print x3
+    (ss :: [Stuff]) <- stuffSelectAll conn
+    return ss
   print stuffs
+
+stuffSelectAll :: Connection -> IO [Stuff]
+stuffSelectAll c = query c sqlText () where
+  sqlText = [sql| SELECT id, name, age FROM stuff; |]
+
+stuffInsert :: Connection -> Stuff -> IO [Only Int]
+stuffInsert c s = query c sqlText s where
+  sqlText = [sql| INSERT INTO stuff (name, age) VALUES (?, ?) RETURNING id; |]
+
 
 withTx :: Pool Connection -> (Connection -> IO a) -> IO a
 withTx pool ioa = withResource pool (\conn ->
@@ -58,12 +72,6 @@ defaultSettings = ConnectInfo dbHost dbPort dbUser dbPassword dbDatabase
     dbUser = "postgres"
     dbPassword = "postgres"
     dbDatabase = "notification_db"
-
-stuffSelectAll :: Query
-stuffSelectAll = [sql| SELECT id, name, age FROM stuff; |]
-
-stuffInsert :: Query
-stuffInsert = [sql| INSERT INTO stuff (name, age) VALUES (?, ?) RETURNING id; |]
 
 
 foo :: Ops (Map Key Val)
@@ -110,11 +118,6 @@ runOpsIO = iterM run where
       globalModifyIndent (\x -> x - 1)
       putStrLn $ unpack $ indent <> "end transaction"
       return r
-
--- global connection
-{-# NOINLINE _globalConnection #-}
-_globalConnection :: IORef Connection
-_globalConnection = undefined
 
 -- global hash map
 {-# NOINLINE _globalKV #-}
