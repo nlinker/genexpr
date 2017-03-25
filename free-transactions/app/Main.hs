@@ -1,6 +1,6 @@
 module Main where
 
-import Lib
+import DbSimple
 
 main :: IO ()
-main = runFoo
+main = mainSimple
