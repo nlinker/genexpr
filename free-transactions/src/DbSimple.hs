@@ -18,6 +18,7 @@ import Data.HashMap           (Map, empty, insert, lookup)
 import Data.Monoid            ((<>))
 import Data.Maybe             (fromMaybe)
 import Data.Text              (Text, pack, unpack)
+import Data.Function          ((&))
 
 import Data.Pool (Pool, createPool, withResource)
 import Database.PostgreSQL.Simple (Query, ConnectInfo(..), Connection, Only,
@@ -30,11 +31,6 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 
 import Model
-
-instance FromRow Stuff where
-  fromRow = Stuff <$> field <*> field <*> field
-instance ToRow Stuff where
-  toRow p = toRow (name p, age p)
 
 -- run foo in IO
 mainSimple :: IO ()
@@ -51,6 +47,11 @@ mainSimple = do
     return ss
   print stuffs
 
+instance FromRow Stuff where
+  fromRow = Stuff <$> field <*> field <*> field
+instance ToRow Stuff where
+  toRow p = toRow (name p, age p)
+
 stuffSelectAll :: Connection -> IO [Stuff]
 stuffSelectAll c = query c sqlText () where
   sqlText = [sql| SELECT id, name, age FROM stuff; |]
@@ -58,7 +59,6 @@ stuffSelectAll c = query c sqlText () where
 stuffInsert :: Connection -> Stuff -> IO [Only Int]
 stuffInsert c s = query c sqlText s where
   sqlText = [sql| INSERT INTO stuff (name, age) VALUES (?, ?) RETURNING id; |]
-
 
 withTx :: Pool Connection -> (Connection -> IO a) -> IO a
 withTx pool ioa = withResource pool (\conn ->
@@ -74,24 +74,6 @@ defaultSettings = ConnectInfo dbHost dbPort dbUser dbPassword dbDatabase
     dbDatabase = "notification_db"
 
 
-foo :: Ops (Map Key Val)
-foo = do
-  let k1 = "foo1"
-  let k2 = "foo2"
-  (vt1, vt2) <- transact $ do
-    v1 <- getX k1
-    v2 <- getX k2
-    when (v1 == "error")
-      failure
-    return (v1, v2)
-  -- get one by one, not in transaction
-  vn1 <- getX k1
-  vn2 <- getX k2
-  -- build result map
-  return $
-    insert k1 vn1 $
-    insert k2 vn2 empty
-
 -- now run it in the IO
 runOpsIO :: (MonadIO m, MonadRandom m) => Ops a -> m a
 runOpsIO = iterM run where
@@ -102,7 +84,7 @@ runOpsIO = iterM run where
       indent <- globalIndent
       putStrLn $ unpack $ indent <> "get " <> k <> " -> " <> v
       return v
-  run (GetDb k next) = next =<< mv where
+  run (GetVal k next) = next =<< mv where
     mv = liftIO $ do
       v <- globalGet k
       indent <- globalIndent

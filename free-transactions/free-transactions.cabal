@@ -34,6 +34,7 @@ library
                      , resource-pool
                      , text
                      , transformers
+                     , mtl
 
 executable free-transactions-exe
   hs-source-dirs:      app
