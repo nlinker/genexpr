@@ -21,11 +21,22 @@ import Data.Function            (id)
 import Control.Monad.Except     (MonadError, runExceptT, catchError, throwError)
 import Control.Exception        (IOException(..), SomeException(..), Exception, throw)
 import Data.Typeable            (Typeable)
+import Text.Read                (readMaybe)
+import Control.Monad.Trans.Maybe (runMaybeT)
+import Data.Foldable            (msum)
 
 type Key = Text
 type Val = Text
 
-data Err = Err
+data Err = Err deriving (Eq, Show)
+
+--data TestF n where
+--  Log      :: (MonadError Err m) => Text -> (m () -> n)         -> TestF n
+--  Get      :: (MonadError Err m) => Key -> (m Val -> n)         -> TestF n
+--  Put      :: (MonadError Err m) => Key -> Val -> (m () -> n)   -> TestF n
+--  Rollback :: (MonadError Err m) => (m () -> n)                 -> TestF n
+--  Commit   :: (MonadError Err m) => (m () -> n)                 -> TestF n
+--  Transact :: (MonadError Err m) => TestFree m a -> (m a -> n)  -> TestF n
 
 data TestF n where
   Log      :: (MonadError Err m) => Text -> (m () -> n)         -> TestF n
@@ -33,56 +44,142 @@ data TestF n where
   Put      :: (MonadError Err m) => Key -> Val -> (m () -> n)   -> TestF n
   Rollback :: (MonadError Err m) => (m () -> n)                 -> TestF n
   Commit   :: (MonadError Err m) => (m () -> n)                 -> TestF n
-  Transact :: (MonadError Err m) => TestFree m a -> (m a -> n)  -> TestF n
+--  Transact :: (MonadError Err m) => TestFree m a -> (m a -> n)  -> TestF n
 
 instance Functor TestF where
   fmap f (Log msg n) = Log msg (f . n)
   fmap f (Get k n) = Get k (f . n)
   fmap f (Put k v n) = Put k v (f . n)
-  fmap f (Transact block n) = Transact block (f . n)
   fmap f (Rollback n) = Rollback (f . n)
   fmap f (Commit n) = Commit (f . n)
+--  fmap f (Transact block n) = Transact block (f . n)
 
 type TestFree m a = FreeT TestF m a
 --  deriving (Applicative, Functor, Monad, MonadFree (TestF tex))
 
---makeFree ''TestF
+makeFree ''TestF
 
-log      :: (MonadFree TestF m) => Text -> m ()
-get      :: (MonadFree TestF m) => Key -> m Val
-put      :: (MonadFree TestF m) => Key -> Val -> m ()
-transact :: (MonadFree TestF m) => TestFree m a -> m a
-rollback :: (MonadFree TestF m) => m ()
-commit   :: (MonadFree TestF m) => m ()
+--log      :: (MonadFree TestF m) => Text -> m ()
+--get      :: (MonadFree TestF m) => Key -> m Val
+--put      :: (MonadFree TestF m) => Key -> Val -> m ()
+--transact :: (MonadFree TestF m) => TestFree m a -> m a
+--rollback :: (MonadFree TestF m) => m ()
+--commit   :: (MonadFree TestF m) => m ()
 
---ret :: ExceptT e m a -> m (Either e a)
-ret :: ExceptT Err m a -> m (Either Err a)
-ret = runExceptT
+-- either :: (a -> c) -> (b -> c) -> Either a b -> c
+-- runExceptT :: ExceptT e m a -> m (Either e a)
+err :: (MonadError Err m) => Either Err a -> m a
+err = either throwError return
 
---y :: MonadError Err m => m ()
-y :: ExceptT Err m ()
-y = ExceptT (_ (Right ()))
+a :: (MonadFree TestF m, MonadError Err m) => Text -> m ()
+a = undefined
+
+someFn :: ExceptT Err IO ()
+someFn = err (Left Err)
+
+main :: IO ()
+main = do
+  eth <- runExceptT someFn
+  either print return eth
+
+data RetryF next where
+  Output    :: String -> next ->                    RetryF next
+  Input     :: Read a => (a -> next) ->             RetryF next
+--  InputE    :: Read a => (Either Err a -> next) -> RetryF next
+  InputE    :: (Read a, MonadError Err m) => (m a -> next) -> RetryF next
+  Transact  :: RetryFree a -> (a -> next) ->        RetryF next
+  Retry     ::                                      RetryF next
+
+instance Functor RetryF where
+  fmap f (Output s x) = Output s (f x)
+  fmap f (Input g) = Input (f . g)
+  fmap f (InputE g) = InputE (f . g)
+  fmap f (Transact block g) = Transact block (f . g)
+  fmap _ Retry = Retry
+
+type RetryFree = Free RetryF
+
+makeFree ''RetryF
+
+output1 :: MonadFree RetryF m => String -> m ()
+output1 s = liftF $ Output s ()
+
+input1 :: (MonadFree RetryF m, Read a) => m a
+input1 = liftF $ Input id
+
+inputE1 :: (MonadFree RetryF m, Read a) => m (Either Err a)
+inputE1 = liftF $ InputE id
+
+withRetry1 :: MonadFree RetryF m => RetryFree a -> m a
+withRetry1 block = liftF $ Transact block id
+
+retry1 :: MonadFree RetryF m => m ()
+retry1 = liftF Retry
+
+--abc2 :: (MonadError Err m0, MonadFree RetryF m1) => m1 (m0 a)
+--abc2 :: RetryFree (Either Err a)
+--abc2 = input2
+
+test :: MonadFree RetryF m => m ()
+test = do
+  n <- withRetry1 $ do
+    output1 "Enter any positive number: "
+    k <- inputE1
+    output1 $ "Either" ++ show (k :: Either Err Int)
+    n <- input1
+    when (n <= 0) $ do
+      output1 "The number should be positive."
+      retry1
+    return n
+  output1 $ "You've just entered " ++ show (n :: Int)
+
+runRetry :: MonadIO m => RetryFree a -> m a
+runRetry = iterM runIO
+
+runIO :: MonadIO m => RetryF (m a) -> m a
+runIO (Output s next) = do
+  liftIO $ putStrLn s
+  next
+runIO (Input next) = do
+  s <- liftIO getLine
+  case readMaybe s of
+    Just x -> next x
+    Nothing -> fail "invalid output"
+runIO (InputE next) = do
+  s <- liftIO getLine
+  let eth = readE s
+  next eth -- eth :: Either Err a
+  where
+    readE :: (Read a1) => String -> Either Err a1
+    readE s = case readMaybe s of
+      Just x -> Right x
+      Nothing -> Left Err
+runIO (Transact block next) = do
+  -- Here we use
+  -- runRetry :: MonadIO m => Retry a -> MaybeT (m a)
+  -- to control failure with MaybeT.
+  -- We repeatedly run retriable block until we get it to work.
+  Just x <- runMaybeT . msum $ repeat (runRetry block)
+  next x
+runIO Retry = fail "forced retry"
 
 
-
-rollback = return undefined
-commit = undefined
-log = undefined
-get = undefined
-put = undefined
-transact = undefined
-
-data Picture tex = Picture tex
-
-data Cmd tex n =
-    Clear n
-  | LoadTexture FilePath (tex -> n)
-  | Render (Picture tex) n
-  | Update n
-    deriving Functor
-
-newtype Command tex m a = Command { runCommand :: FreeT (Cmd tex) m a }
-  deriving (Applicative, Functor, Monad, MonadFree (Cmd tex), MonadTrans)
+--foo :: (MonadFree TestF m, MonadError Err m) => m ()
+--foo = do
+--  x <- get "k1"
+--  put "k2" x
+--  throwError Err
+--  z <- bar
+--  log $ pack $ show z
+--
+--bar :: (MonadFree TestF m) => m Int
+--bar = do
+--  y <- get "k3"
+--  log $ pack $ show y
+--  when (y == "42")
+--    rollback
+--  put "k4" y
+--  return (42 :: Int)
 
 -- > {-# OPTIONS_GHC -Wall                      #-}
 -- > {-# OPTIONS_GHC -fno-warn-name-shadowing   #-}
@@ -90,21 +187,6 @@ newtype Command tex m a = Command { runCommand :: FreeT (Cmd tex) m a }
 -- > {-# OPTIONS_GHC -fno-warn-unused-do-bind   #-}
 -- > {-# OPTIONS_GHC -fno-warn-missing-methods  #-}
 -- > {-# OPTIONS_GHC -fno-warn-orphans          #-}
-
-
-foo :: (MonadFree TestF m, MonadError Err m) => m ()
-foo = do
-  x <- get "k1"
-  put "k2" x
-  throwError Err
-  z <- transact $ do
-    y <- get "k3"
-    log $ pack $ show y
-    when (y == "42")
-      rollback
-    put "k4" y
-    return (42 :: Int)
-  log $ pack $ show z
 
 --log :: (MonadFree TestF m) => Text -> m ()
 --log msg = liftF $ Log msg ()
