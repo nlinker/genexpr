@@ -83,17 +83,14 @@ main = do
   either print return eth
 
 data RetryF next where
-  Output    :: String -> next ->                    RetryF next
-  Input     :: Read a => (a -> next) ->             RetryF next
---  InputE    :: Read a => (Either Err a -> next) -> RetryF next
-  InputE    :: (Read a, MonadError Err m) => (m a -> next) -> RetryF next
+  Output    :: String -> (Either Err () -> next) -> RetryF next
+  Input     :: Read a => (Either Err a -> next)  -> RetryF next
   Transact  :: RetryFree a -> (a -> next) ->        RetryF next
   Retry     ::                                      RetryF next
 
 instance Functor RetryF where
-  fmap f (Output s x) = Output s (f x)
+  fmap f (Output s x) = Output s (f . x)
   fmap f (Input g) = Input (f . g)
-  fmap f (InputE g) = InputE (f . g)
   fmap f (Transact block g) = Transact block (f . g)
   fmap _ Retry = Retry
 
@@ -101,17 +98,14 @@ type RetryFree = Free RetryF
 
 makeFree ''RetryF
 
-output1 :: MonadFree RetryF m => String -> m ()
-output1 s = liftF $ Output s ()
+output1 :: MonadFree RetryF m => String -> m (Either Err ())
+output1 s = liftF $ Output s id
 
-input1 :: (MonadFree RetryF m, Read a) => m a
+input1 :: (MonadFree RetryF m, Read a) => m (Either Err a)
 input1 = liftF $ Input id
 
-inputE1 :: (MonadFree RetryF m, Read a) => m (Either Err a)
-inputE1 = liftF $ InputE id
-
-withRetry1 :: MonadFree RetryF m => RetryFree a -> m a
-withRetry1 block = liftF $ Transact block id
+transact1 :: MonadFree RetryF m => RetryFree a -> m a
+transact1 block = liftF $ Transact block id
 
 retry1 :: MonadFree RetryF m => m ()
 retry1 = liftF Retry
@@ -120,18 +114,25 @@ retry1 = liftF Retry
 --abc2 :: RetryFree (Either Err a)
 --abc2 = input2
 
-test :: MonadFree RetryF m => m ()
-test = do
-  n <- withRetry1 $ do
-    output1 "Enter any positive number: "
-    k <- inputE1
-    output1 $ "Either" ++ show (k :: Either Err Int)
+type VM a = RetryFree (Either Err a)
+
+test :: VM ()
+test = runExceptT $ do
+  n <- ExceptT $ transact1 $ do
     n <- input1
-    when (n <= 0) $ do
-      output1 "The number should be positive."
-      retry1
-    return n
-  output1 $ "You've just entered " ++ show (n :: Int)
+--    when (n <= 0) $ do
+--      lift $ output1 "The number should be positive."
+--      retry1
+    return $ Right n
+  ExceptT $ output1 $ "You've just entered " ++ show (n :: Either Err Int)
+--  n <- lift $ withRetry1 $ do
+--    lift $ output1 "Enter any positive number: "
+--    n <- lift input1
+--    when (n <= 0) $ do
+--      lift $ output1 "The number should be positive."
+--      retry1
+--    return n
+--  lift $ output1 $ "You've just entered " ++ show (n :: Int)
 
 runRetry :: MonadIO m => RetryFree a -> m a
 runRetry = iterM runIO
@@ -139,13 +140,8 @@ runRetry = iterM runIO
 runIO :: MonadIO m => RetryF (m a) -> m a
 runIO (Output s next) = do
   liftIO $ putStrLn s
-  next
+  next $ Right ()
 runIO (Input next) = do
-  s <- liftIO getLine
-  case readMaybe s of
-    Just x -> next x
-    Nothing -> fail "invalid output"
-runIO (InputE next) = do
   s <- liftIO getLine
   let eth = readE s
   next eth -- eth :: Either Err a
