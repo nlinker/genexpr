@@ -80,59 +80,57 @@ a = undefined
 someFn :: ExceptT Err IO ()
 someFn = err (Left Err)
 
-type TFM a = FreeT RetryF (Either Err)
+type TFM a = FreeT TransF (Either Err)
 
 -- FreeT (f :: * -> *) (m :: * -> *) a
-type RetryFree = Free RetryF
+type TransFree = Free TransF
 
-data RetryF next where
-  Output    :: String ->                  (Either Err () -> next) -> RetryF next
-  Input     :: Read a =>                  (Either Err a -> next)  -> RetryF next
-  Transact  :: Show a => ExceptT Err RetryFree a -> (Either Err a -> next)  -> RetryF next
-  Reset     ::                            (Either Err () -> next) -> RetryF next
+data TransF next where
+  Output    :: String ->                  (Either Err () -> next) -> TransF next
+  Input     :: Read a =>                  (Either Err a -> next)  -> TransF next
+  Transact  :: Show a => ExceptT Err TransFree a -> (Either Err a -> next)  -> TransF next
+  Reset     ::                            (Either Err () -> next) -> TransF next
 
-instance Functor RetryF where
+instance Functor TransF where
   fmap f (Output s n) = Output s (f . n)
   fmap f (Input n) = Input (f . n)
   fmap f (Transact block n) = Transact block (f . n)
   fmap f (Reset n) = Reset (f . n)
 
 
-makeFree ''RetryF
+makeFree ''TransF
 
 -- runExceptT :: ExceptT e m a -> m (Either e a)
 
-output1 :: MonadFree RetryF m => String -> ExceptT Err m ()
+output1 :: MonadFree TransF m => String -> ExceptT Err m ()
 output1 s = ExceptT $ liftF $ Output s id
 
-input1 :: (MonadFree RetryF m, Read a) => ExceptT Err m a
+input1 :: (MonadFree TransF m, Read a) => ExceptT Err m a
 input1 = ExceptT $ liftF $ Input id
 
 -- liftF :: (Functor f, MonadFree f m) => f a -> m a
--- liftF :: RetryF (Either Err a) -> m (Either Err a)
--- Transact  :: Show a => ExceptT Err RetryFree a -> (ExceptT Err RetryFree a -> next)  -> RetryF next
--- transact1 :: MonadFree RetryF m => RetryFree ae -> m ae
-transact1 :: (MonadFree RetryF m, Show a) => ExceptT Err RetryFree a -> m (Either Err a)
+-- liftF :: TransF (Either Err a) -> m (Either Err a)
+-- Transact  :: Show a => ExceptT Err TransFree a -> (ExceptT Err TransFree a -> next) -> TransF next
+-- transact1 :: MonadFree TransF m => TransFree ae -> m ae
+transact1 :: (MonadFree TransF m, Show a) => ExceptT Err TransFree a -> m (Either Err a)
 transact1 block = liftF $ Transact block id
 
-unwrap :: ExceptT Err RetryFree a -> a
+unwrap :: ExceptT Err TransFree a -> a
 unwrap exc = do
   let eth = runExceptT exc
   undefined
---f :: RetryF (ExceptT Err RetryFree a) -> m (Either Err a)
+--f :: TransF (ExceptT Err TransFree a) -> m (Either Err a)
 --f = liftF _
 
-reset1 :: MonadFree RetryF m => ExceptT Err m ()
+reset1 :: MonadFree TransF m => ExceptT Err m ()
 reset1 = ExceptT $ liftF $ Reset id
-
---type VM a = RetryFree (Either Err a)
 
 main :: IO ()
 main = do
   r <- fireIO test
   print r
 
-test :: RetryFree (Either Err ())
+test :: TransFree (Either Err ())
 test = runExceptT $ do
   n <- transact1 $ do
     n <- input1
@@ -142,10 +140,10 @@ test = runExceptT $ do
     return $ Right n
   output1 $ "You've just entered " ++ show (n :: Either Err (Either Err Integer))
 
-fireIO :: MonadIO m => RetryFree a -> m a
+fireIO :: MonadIO m => TransFree a -> m a
 fireIO = iterM runIO
 
-runIO :: MonadIO m => RetryF (m a) -> m a
+runIO :: MonadIO m => TransF (m a) -> m a
 runIO (Output s next) = do
   liftIO $ putStrLn s
   next $ Right ()
@@ -160,11 +158,11 @@ runIO (Input next) = do
       Nothing -> Left Err
 runIO (Transact block next) = do
   -- eth :: Either Err a
-  -- fireIO :: MonadIO m => RetryFree a -> m a
-  -- block :: ExceptT Err RetryFree a
+  -- fireIO :: MonadIO m => TransFree a -> m a
+  -- block :: ExceptT Err TransFree a
   -- runExceptT :: ExceptT e m a -> m (Either e a)
-  -- runExceptT block :: Free RetryF (Either Err a)
-  -- runExceptT block :: RetryFree (Either Err a)
+  -- runExceptT block :: Free TransF (Either Err a)
+  -- runExceptT block :: TransFree (Either Err a)
   -- fireIO (runExceptT block) :: MonadIO m => m (Either Err a)
   eth <- fireIO $ runExceptT block
   traceShowM $ "----> " <> show eth
