@@ -43,12 +43,14 @@ data TransF next where
   Input     :: Read a =>                  (Either Err a -> next)  -> TransF next
   Transact  :: Show a => TransFree (Either Err a) -> (Either Err a -> next)  -> TransF next
   Rollback  ::                            (Either Err () -> next) -> TransF next
+  Commit    ::                            (Either Err () -> next) -> TransF next
 
 instance Functor TransF where
   fmap f (Output s n) = Output s (f . n)
   fmap f (Input n) = Input (f . n)
   fmap f (Transact block n) = Transact block (f . n)
   fmap f (Rollback n) = Rollback (f . n)
+  fmap f (Commit n) = Commit (f . n)
 
 makeFree ''TransF
 
@@ -71,18 +73,46 @@ transact1 = ExceptT . inner . runExceptT
 rollback1 :: ExceptT Err TransFree ()
 rollback1 = ExceptT $ liftF $ Rollback id
 
+commit1 :: ExceptT Err TransFree ()
+commit1 = ExceptT $ liftF $ Commit id
+
 main :: IO ()
 main = do
-  r <- fireIO test
-  print r
+  putStrLn "=== Explicit branching, fireIO testN ==="
+  n <- fireIO testN
+  putStrLn $ "fireIO testN = " <> show n
+  putStrLn "=== Explicit branching, fireIO testN ==="
+  y <- fireIO testY
+  putStrLn $ "fireIO testY = " <> show y
 
-test0 :: TransFree (Either Err ())
-test0 = do
-  eth <- transact rollback
-  return eth
+testN :: TransFree (Either Err Integer)
+testN = do
+  (ke :: Either Err Integer) <- input
+  case ke of
+    Left e -> return $ Left e
+    Right k -> do
+      output $ "k = " <> show k
+      ne <- transact $ do
+        (ne' :: Either Err Integer) <- input
+        case ne' of
+          Left e -> return $ Left e
+          Right n' -> do
+            ie <- if n' >= 0 then do
+              output "The number should be negative."
+              rollback
+            else
+              return $ Right ()
+            case ie of
+              Left e -> return $ Left e
+              Right () -> return $ Right n'
+      case ne of
+        Left e -> return $ Left e
+        Right n -> do
+          output $ "You've just entered " ++ show n
+          return $ Right n
 
-test :: TransFree (Either Err Integer)
-test = runExceptT $ do
+testY :: TransFree (Either Err Integer)
+testY = runExceptT $ do
   (k :: Integer) <- input1
   output1 $ "k = " <> show k
   (n :: Integer) <- transact1 $ do
