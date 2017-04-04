@@ -81,7 +81,8 @@ main = do
   putStrLn "=== Explicit branching, fireIO testN ==="
   n <- fireIO testN
   putStrLn $ "fireIO testN = " <> show n
-  putStrLn "=== Explicit branching, fireIO testN ==="
+  putStrLn
+  putStrLn "=== Implicit branching, fireIO testY ==="
   y <- fireIO testY
   putStrLn $ "fireIO testY = " <> show y
 
