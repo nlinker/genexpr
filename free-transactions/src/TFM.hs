@@ -153,6 +153,7 @@ runIO (Transact block next) = do
     Left err -> next $ Left err
     Right a -> next $ Right a
 runIO (Rollback next) = next $ Left $ Err "reset"
+runIO (Commit next) = next $ Right $ error "TODO commit is not implemented yet"
 
 
 -- TODO how to make free monads with monad constraints
