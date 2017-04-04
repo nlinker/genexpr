@@ -6,7 +6,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE GADTs #-}
 
-module FME where
+module TFM where
 
 import Debug.Trace
 
@@ -80,6 +80,11 @@ a = undefined
 someFn :: ExceptT Err IO ()
 someFn = err (Left Err)
 
+type TFM a = FreeT RetryF (Either Err)
+
+-- FreeT (f :: * -> *) (m :: * -> *) a
+type RetryFree = Free RetryF
+
 data RetryF next where
   Output    :: String ->                  (Either Err () -> next) -> RetryF next
   Input     :: Read a =>                  (Either Err a -> next)  -> RetryF next
@@ -92,9 +97,10 @@ instance Functor RetryF where
   fmap f (Transact block n) = Transact block (f . n)
   fmap f (Reset n) = Reset (f . n)
 
-type RetryFree = Free RetryF
 
 makeFree ''RetryF
+
+-- runExceptT :: ExceptT e m a -> m (Either e a)
 
 output1 :: MonadFree RetryF m => String -> ExceptT Err m ()
 output1 s = ExceptT $ liftF $ Output s id
@@ -102,10 +108,19 @@ output1 s = ExceptT $ liftF $ Output s id
 input1 :: (MonadFree RetryF m, Read a) => ExceptT Err m a
 input1 = ExceptT $ liftF $ Input id
 
--- runExceptT :: ExceptT e m a -> m (Either e a)
+-- liftF :: (Functor f, MonadFree f m) => f a -> m a
+-- liftF :: RetryF (Either Err a) -> m (Either Err a)
+-- Transact  :: Show a => ExceptT Err RetryFree a -> (ExceptT Err RetryFree a -> next)  -> RetryF next
 -- transact1 :: MonadFree RetryF m => RetryFree ae -> m ae
-transact1 :: (MonadFree RetryF m, Show a) => ExceptT Err RetryFree a -> ExceptT Err m a
-transact1 block = ExceptT $ liftF $ Transact block id
+transact1 :: (MonadFree RetryF m, Show a) => ExceptT Err RetryFree a -> m (Either Err a)
+transact1 block = liftF $ Transact block id
+
+unwrap :: ExceptT Err RetryFree a -> a
+unwrap exc = do
+  let eth = runExceptT exc
+  undefined
+--f :: RetryF (ExceptT Err RetryFree a) -> m (Either Err a)
+--f = liftF _
 
 reset1 :: MonadFree RetryF m => ExceptT Err m ()
 reset1 = ExceptT $ liftF $ Reset id
@@ -125,7 +140,7 @@ test = runExceptT $ do
       output1 "The number should be positive."
       reset1
     return $ Right n
-  output1 $ "You've just entered " ++ show (n :: Either Err Int)
+  output1 $ "You've just entered " ++ show (n :: Either Err (Either Err Integer))
 
 fireIO :: MonadIO m => RetryFree a -> m a
 fireIO = iterM runIO
@@ -144,9 +159,18 @@ runIO (Input next) = do
       Just x -> Right x
       Nothing -> Left Err
 runIO (Transact block next) = do
+  -- eth :: Either Err a
+  -- fireIO :: MonadIO m => RetryFree a -> m a
+  -- block :: ExceptT Err RetryFree a
+  -- runExceptT :: ExceptT e m a -> m (Either e a)
+  -- runExceptT block :: Free RetryF (Either Err a)
+  -- runExceptT block :: RetryFree (Either Err a)
+  -- fireIO (runExceptT block) :: MonadIO m => m (Either Err a)
   eth <- fireIO $ runExceptT block
-  traceShowM $ "---- eth = " <> show eth
-  next eth
+  traceShowM $ "----> " <> show eth
+  case eth of
+    Left err -> next $ Left err
+    Right a -> next $ Right a
 runIO (Reset next) = next $ Left Err
 
 --foo :: (MonadFree TestF m, MonadError Err m) => m ()
