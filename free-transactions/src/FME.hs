@@ -8,6 +8,8 @@
 
 module FME where
 
+import Debug.Trace
+
 import Prelude hiding           (log)
 import Control.Monad            (when)
 import Control.Monad.IO.Class   (MonadIO, liftIO)
@@ -22,6 +24,7 @@ import Control.Monad.Except     (MonadError, runExceptT, catchError, throwError)
 import Control.Exception        (IOException(..), SomeException(..), Exception, throw)
 import Data.Typeable            (Typeable)
 import Text.Read                (readMaybe)
+import Data.Monoid              ((<>))
 import Control.Monad.Trans.Maybe (runMaybeT)
 import Data.Foldable            (msum)
 
@@ -77,65 +80,55 @@ a = undefined
 someFn :: ExceptT Err IO ()
 someFn = err (Left Err)
 
-main :: IO ()
-main = do
-  eth <- runExceptT someFn
-  either print return eth
-
 data RetryF next where
-  Output    :: String -> (Either Err () -> next) -> RetryF next
-  Input     :: Read a => (Either Err a -> next)  -> RetryF next
-  Transact  :: RetryFree a -> (a -> next) ->        RetryF next
-  Retry     ::                                      RetryF next
+  Output    :: String ->                  (Either Err () -> next) -> RetryF next
+  Input     :: Read a =>                  (Either Err a -> next)  -> RetryF next
+  Transact  :: Show a => ExceptT Err RetryFree a -> (Either Err a -> next)  -> RetryF next
+  Reset     ::                            (Either Err () -> next) -> RetryF next
 
 instance Functor RetryF where
-  fmap f (Output s x) = Output s (f . x)
-  fmap f (Input g) = Input (f . g)
-  fmap f (Transact block g) = Transact block (f . g)
-  fmap _ Retry = Retry
+  fmap f (Output s n) = Output s (f . n)
+  fmap f (Input n) = Input (f . n)
+  fmap f (Transact block n) = Transact block (f . n)
+  fmap f (Reset n) = Reset (f . n)
 
 type RetryFree = Free RetryF
 
 makeFree ''RetryF
 
-output1 :: MonadFree RetryF m => String -> m (Either Err ())
-output1 s = liftF $ Output s id
+output1 :: MonadFree RetryF m => String -> ExceptT Err m ()
+output1 s = ExceptT $ liftF $ Output s id
 
-input1 :: (MonadFree RetryF m, Read a) => m (Either Err a)
-input1 = liftF $ Input id
+input1 :: (MonadFree RetryF m, Read a) => ExceptT Err m a
+input1 = ExceptT $ liftF $ Input id
 
-transact1 :: MonadFree RetryF m => RetryFree a -> m a
-transact1 block = liftF $ Transact block id
+-- runExceptT :: ExceptT e m a -> m (Either e a)
+-- transact1 :: MonadFree RetryF m => RetryFree ae -> m ae
+transact1 :: (MonadFree RetryF m, Show a) => ExceptT Err RetryFree a -> ExceptT Err m a
+transact1 block = ExceptT $ liftF $ Transact block id
 
-retry1 :: MonadFree RetryF m => m ()
-retry1 = liftF Retry
+reset1 :: MonadFree RetryF m => ExceptT Err m ()
+reset1 = ExceptT $ liftF $ Reset id
 
---abc2 :: (MonadError Err m0, MonadFree RetryF m1) => m1 (m0 a)
---abc2 :: RetryFree (Either Err a)
---abc2 = input2
+--type VM a = RetryFree (Either Err a)
 
-type VM a = RetryFree (Either Err a)
+main :: IO ()
+main = do
+  r <- fireIO test
+  print r
 
-test :: VM ()
+test :: RetryFree (Either Err ())
 test = runExceptT $ do
-  n <- ExceptT $ transact1 $ do
+  n <- transact1 $ do
     n <- input1
---    when (n <= 0) $ do
---      lift $ output1 "The number should be positive."
---      retry1
+    when (n <= 0) $ do
+      output1 "The number should be positive."
+      reset1
     return $ Right n
-  ExceptT $ output1 $ "You've just entered " ++ show (n :: Either Err Int)
---  n <- lift $ withRetry1 $ do
---    lift $ output1 "Enter any positive number: "
---    n <- lift input1
---    when (n <= 0) $ do
---      lift $ output1 "The number should be positive."
---      retry1
---    return n
---  lift $ output1 $ "You've just entered " ++ show (n :: Int)
+  output1 $ "You've just entered " ++ show (n :: Either Err Int)
 
-runRetry :: MonadIO m => RetryFree a -> m a
-runRetry = iterM runIO
+fireIO :: MonadIO m => RetryFree a -> m a
+fireIO = iterM runIO
 
 runIO :: MonadIO m => RetryF (m a) -> m a
 runIO (Output s next) = do
@@ -151,14 +144,10 @@ runIO (Input next) = do
       Just x -> Right x
       Nothing -> Left Err
 runIO (Transact block next) = do
-  -- Here we use
-  -- runRetry :: MonadIO m => Retry a -> MaybeT (m a)
-  -- to control failure with MaybeT.
-  -- We repeatedly run retriable block until we get it to work.
-  Just x <- runMaybeT . msum $ repeat (runRetry block)
-  next x
-runIO Retry = fail "forced retry"
-
+  eth <- fireIO $ runExceptT block
+  traceShowM $ "---- eth = " <> show eth
+  next eth
+runIO (Reset next) = next $ Left Err
 
 --foo :: (MonadFree TestF m, MonadError Err m) => m ()
 --foo = do
