@@ -1,3 +1,5 @@
 module Main where
 
-main = putStrLn "Cool"
+import AlaCarte
+
+main = mainA

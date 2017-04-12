@@ -4,7 +4,7 @@ ghc-options: -threaded -Wall -fno-warn-name-shadowing
 
 executables:
   a-la-carte:
-    main: service.hs
+    main: Main.hs
     source-dirs:
       - app
     dependencies:
@@ -14,7 +14,7 @@ library:
   source-dirs:
     - src
   other-modules:
-    - Paths_vertigo_notification
+    - Paths_a_la_carte
 
 dependencies:
  - base
