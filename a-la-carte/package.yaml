@@ -1,0 +1,30 @@
+name: a-la-carte
+version: 0.1.0
+ghc-options: -threaded -Wall -fno-warn-name-shadowing
+
+executables:
+  a-la-carte:
+    main: service.hs
+    source-dirs:
+      - app
+    dependencies:
+      - a-la-carte
+
+library:
+  source-dirs:
+    - src
+  other-modules:
+    - Paths_vertigo_notification
+
+dependencies:
+ - base
+ - free
+ - hashable
+ - bytestring
+ - contravariant
+ - free
+ - hashmap
+ - MonadRandom
+ - text
+ - transformers
+ - mtl

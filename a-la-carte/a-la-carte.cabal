@@ -1,0 +1,53 @@
+-- This file has been generated from package.yaml by hpack version 0.14.0.
+--
+-- see: https://github.com/sol/hpack
+
+name:           a-la-carte
+version:        0.1.0
+license-file:   LICENSE
+build-type:     Simple
+cabal-version:  >= 1.10
+
+library
+  hs-source-dirs:
+      src
+  ghc-options: -threaded -Wall -fno-warn-name-shadowing
+  build-depends:
+      base
+    , free
+    , hashable
+    , bytestring
+    , contravariant
+    , free
+    , hashmap
+    , MonadRandom
+    , text
+    , transformers
+    , mtl
+  exposed-modules:
+      AlaCarte
+  other-modules:
+      Paths_vertigo_notification
+  default-language: Haskell2010
+
+executable a-la-carte
+  main-is: service.hs
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -Wall -fno-warn-name-shadowing
+  build-depends:
+      base
+    , free
+    , hashable
+    , bytestring
+    , contravariant
+    , free
+    , hashmap
+    , MonadRandom
+    , text
+    , transformers
+    , mtl
+    , a-la-carte
+  other-modules:
+      Main
+  default-language: Haskell2010
