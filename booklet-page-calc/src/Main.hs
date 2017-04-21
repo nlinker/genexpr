@@ -2,7 +2,6 @@
 
 module Main where
 
-import Debug.Trace
 import Data.Functor.Identity
 
 default (Integer)
