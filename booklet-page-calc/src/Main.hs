@@ -9,7 +9,7 @@ default (Integer)
 
 -- | This is the calculation for booklet paging
 calc :: Integer -> ([Integer], [Integer])
-calc n' = calcDef 0 n'
+calc n' = calcDef n' n'
 
 calcDef :: Integer -> Integer -> ([Integer], [Integer])
 calcDef def n' =
