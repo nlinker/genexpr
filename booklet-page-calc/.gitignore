@@ -2,3 +2,4 @@
 .idea
 .ideaHaskellLib
 *.config
+/booklet-page-calc.cabal
