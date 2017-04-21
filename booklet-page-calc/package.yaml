@@ -1,0 +1,21 @@
+name: booklet-page-calc
+version: 0.1.0
+ghc-options: -threaded -Wall -fno-warn-name-shadowing
+
+tests:
+  unit: #to run this suite: stack test booklet-page-calc
+    main: Tests.hs
+    source-dirs:
+      - test
+    dependencies:
+      - booklet-page-calc
+      - hspec
+
+library:
+  source-dirs:
+    - src
+
+dependencies:
+ - base
+ - bytestring
+ - hspec
