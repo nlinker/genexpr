@@ -1,0 +1,8 @@
+
+service:
+ - name: cool-service
+ - port: 8080
+
+user-service-url: localhost:8081
+search-service-url: localhost:8082
+log-level: INFO

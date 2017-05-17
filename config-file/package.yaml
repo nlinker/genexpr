@@ -1,4 +1,4 @@
-name: booklet-page-calc
+name: config-file
 version: 0.1.0
 ghc-options: -threaded -Wall -fno-warn-name-shadowing
 
@@ -8,7 +8,7 @@ tests:
     source-dirs:
       - test
     dependencies:
-      - booklet-page-calc
+      - config-file
       - hspec
 
 library:
@@ -18,4 +18,6 @@ library:
 dependencies:
  - base
  - bytestring
+ - yaml
+ - optparse-applicative
  - hspec
