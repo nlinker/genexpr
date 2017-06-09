@@ -3,7 +3,7 @@ version: 0.1.0
 ghc-options: -threaded -Wall -fno-warn-name-shadowing
 
 executables:
-  sokoban
+  sokoban:
     main: Main.hs
     source-dirs:
       - app
@@ -15,6 +15,16 @@ library:
     - src
   other-modules:
     - Paths_sokoban
+
+tests:
+  unit:
+    main: UnitTests.hs
+    source-dirs:
+      - test
+    dependencies:
+      - sokoban
+      - hspec
+
 
 dependencies:
  - base
