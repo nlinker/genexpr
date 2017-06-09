@@ -1,0 +1,19 @@
+name: existentials-antipattern
+version: 0.1.0
+ghc-options: -threaded -Wall -fno-warn-name-shadowing
+
+library:
+  source-dirs:
+    - src
+
+executable:
+  booklet-page-calc:
+    main: Main.hs
+  source-dirs:
+    - exe
+  dependencies:
+    existentials-antipattern
+
+dependencies:
+  - base
+  - bytestring
