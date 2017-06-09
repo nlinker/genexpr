@@ -28,13 +28,13 @@ tests:
 
 dependencies:
  - base
- - free
- - hashable
  - bytestring
  - contravariant
  - free
+ - hashable
  - hashmap
  - MonadRandom
+ - mtl
  - text
  - transformers
- - mtl
+ - vector
