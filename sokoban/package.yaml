@@ -35,6 +35,7 @@ dependencies:
  - hashmap
  - MonadRandom
  - mtl
+ - template-haskell
  - text
  - transformers
  - vector
