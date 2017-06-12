@@ -53,9 +53,8 @@ parseCell '*' = Just BoxOnHole
 parseCell _   = Nothing
 
 parseLevel :: B.ByteString -> Maybe Level
-parseLevel str
+parseLevel str = do
   -- break string into lines
- = do
   let chars = map C.unpack $ C.lines str
   let ijs = [[(i, j) | i <- [0 ..]] | j <- [0 ..]]
   let elems = concat $ zipWith zip ijs chars
