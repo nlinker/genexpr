@@ -6,6 +6,7 @@ module Sokoban where
 
 import qualified Data.ByteString       as B
 import qualified Data.ByteString.Char8 as C
+import Control.Arrow (second)
 import Helper (str)
 import Data.Vector (Vector)
 
@@ -52,14 +53,15 @@ parseCell '*' = Just BoxOnHole
 parseCell _   = Nothing
 
 parseLevel :: B.ByteString -> Maybe Level
-parseLevel s = do
-  let lns = C.lines s
-  let chars = map C.unpack lns
+parseLevel str
+  -- break string into lines
+ = do
+  let chars = map C.unpack $ C.lines str
   let ijs = [[(i, j) | i <- [0 ..]] | j <- [0 ..]]
-  let elems :: [((Integer, Integer), Char)]
-      elems = concat $ zipWith zip ijs chars
+  let elems = concat $ zipWith zip ijs chars
+  let cells :: [((Integer, Integer), Maybe Cell)]
+      cells = map (second parseCell) elems
   Nothing
-
 
 level :: B.ByteString
 level = [str|
