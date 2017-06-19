@@ -19,3 +19,4 @@ dependencies:
  - base
  - bytestring
  - hspec
+ - optparse-applicative

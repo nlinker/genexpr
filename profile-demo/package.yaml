@@ -1,0 +1,13 @@
+name: profile-demo
+version: 0.1.0
+ghc-options: -threaded -Wall -fno-warn-name-shadowing
+
+executables:
+  debug-main:
+    main: Main.hs
+    source-dirs:
+      - src
+
+dependencies:
+ - base
+ - bytestring
