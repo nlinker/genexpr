@@ -3,7 +3,7 @@ version: 0.1.0
 ghc-options: -threaded -Wall -fno-warn-name-shadowing
 
 executables:
-  debug-main:
+  teh-main:
     main: Main.hs
     source-dirs:
       - src
