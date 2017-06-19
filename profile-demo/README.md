@@ -29,11 +29,3 @@ CAF                        GHC.IO.Handle.FD         81           0    0.0   47.7
 CAF                        GHC.IO.Handle.Text       80           0    0.0    0.1     0.0    0.1
 CAF                        GHC.IO.Encoding.Iconv    61           0    0.0    0.3     0.0    0.3
 ```
-The problem with strange `GHC.IO.Handle.FD`
-
-## Improved
-
-From the command line:
-```
-stack clean && stack build --executable-profiling --library-profiling --ghc-options="-fprof-auto -rtsopts" && stack exec -- teh-main +RTS -p
-```

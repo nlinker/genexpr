@@ -1,13 +1,13 @@
-	Mon Jun 19 20:39 2017 Time and Allocation Profiling Report  (Final)
+	Mon Jun 19 20:49 2017 Time and Allocation Profiling Report  (Final)
 
 	   teh-main +RTS -p -RTS
 
-	total time  =        0.00 secs   (0 ticks @ 1000 us, 1 processor)
+	total time  =        0.00 secs   (4 ticks @ 1000 us, 1 processor)
 	total alloc =      72,312 bytes  (excludes profiling overheads)
 
 COST CENTRE MODULE           %time %alloc
 
-MAIN        MAIN               0.0   31.1
+MAIN        MAIN             100.0   31.1
 CAF         GHC.IO.Handle.FD   0.0   47.7
 CAF         GHC.IO.Encoding    0.0    3.8
 CAF         GHC.Event.Thread   0.0    1.7
@@ -17,7 +17,7 @@ main        Main               0.0   14.3
                                                                       individual     inherited
 COST CENTRE                 MODULE                  no.     entries  %time %alloc   %time %alloc
 
-MAIN                        MAIN                     46           0    0.0   31.1     0.0  100.0
+MAIN                        MAIN                     46           0  100.0   31.1   100.0  100.0
  main                       Main                     93           0    0.0   14.2     0.0   14.2
  CAF:main1                  Main                     90           0    0.0    0.0     0.0    0.1
   main                      Main                     92           1    0.0    0.1     0.0    0.1
