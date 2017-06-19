@@ -1,38 +1,32 @@
-	Mon Jun 19 20:49 2017 Time and Allocation Profiling Report  (Final)
+	Mon Jun 19 21:28 2017 Time and Allocation Profiling Report  (Final)
 
 	   teh-main +RTS -p -RTS
 
-	total time  =        0.00 secs   (4 ticks @ 1000 us, 1 processor)
-	total alloc =      72,312 bytes  (excludes profiling overheads)
+	total time  =        0.00 secs   (0 ticks @ 1000 us, 1 processor)
+	total alloc =      69,160 bytes  (excludes profiling overheads)
 
 COST CENTRE MODULE           %time %alloc
 
-MAIN        MAIN             100.0   31.1
-CAF         GHC.IO.Handle.FD   0.0   47.7
-CAF         GHC.IO.Encoding    0.0    3.8
-CAF         GHC.Event.Thread   0.0    1.7
-main        Main               0.0   14.3
+MAIN        MAIN               0.0   32.5
+CAF         GHC.IO.Handle.FD   0.0   49.9
+CAF         GHC.IO.Encoding    0.0    4.9
+CAF         GHC.Event.Thread   0.0    1.8
+CAF         GHC.List           0.0    8.3
 
 
-                                                                      individual     inherited
-COST CENTRE                 MODULE                  no.     entries  %time %alloc   %time %alloc
+                                                         individual     inherited
+COST CENTRE    MODULE                  no.     entries  %time %alloc   %time %alloc
 
-MAIN                        MAIN                     46           0  100.0   31.1   100.0  100.0
- main                       Main                     93           0    0.0   14.2     0.0   14.2
- CAF:main1                  Main                     90           0    0.0    0.0     0.0    0.1
-  main                      Main                     92           1    0.0    0.1     0.0    0.1
- CAF:main2                  Main                     89           0    0.0    0.0     0.0    0.1
-  main                      Main                     94           0    0.0    0.1     0.0    0.1
- CAF:main3                  Main                     88           0    0.0    0.0     0.0    0.0
-  main                      Main                     95           0    0.0    0.0     0.0    0.0
-   foo                      Main                     96           1    0.0    0.0     0.0    0.0
-    foo.fooSub              Main                     97           1    0.0    0.0     0.0    0.0
-     bar                    Main                     98           1    0.0    0.0     0.0    0.0
-      bar.barSub            Main                     99           1    0.0    0.0     0.0    0.0
-       bar.barSub.barSubSub Main                    100           1    0.0    0.0     0.0    0.0
- CAF                        GHC.Event.Thread         84           0    0.0    1.7     0.0    1.7
- CAF                        GHC.Conc.Signal          83           0    0.0    0.9     0.0    0.9
- CAF                        GHC.IO.Encoding          82           0    0.0    3.8     0.0    3.8
- CAF                        GHC.IO.Handle.FD         81           0    0.0   47.7     0.0   47.7
- CAF                        GHC.IO.Handle.Text       80           0    0.0    0.1     0.0    0.1
- CAF                        GHC.IO.Encoding.Iconv    61           0    0.0    0.3     0.0    0.3
+MAIN           MAIN                     59           0    0.0   32.5     0.0  100.0
+ main          Main                    119           0    0.0    0.3     0.0    0.3
+ CAF:main1     Main                    116           0    0.0    0.0     0.0    0.0
+  main         Main                    118           1    0.0    0.0     0.0    0.0
+ CAF:lvl3_r7Mz Main                    115           0    0.0    0.0     0.0    0.7
+  main         Main                    120           0    0.0    0.7     0.0    0.7
+ CAF           GHC.Conc.Sync           105           0    0.0    0.3     0.0    0.3
+ CAF           GHC.List                103           0    0.0    8.3     0.0    8.3
+ CAF           GHC.Event.Thread        100           0    0.0    1.8     0.0    1.8
+ CAF           GHC.Conc.Signal          99           0    0.0    0.9     0.0    0.9
+ CAF           GHC.IO.Encoding          98           0    0.0    4.9     0.0    4.9
+ CAF           GHC.IO.Handle.FD         97           0    0.0   49.9     0.0   49.9
+ CAF           GHC.IO.Encoding.Iconv    88           0    0.0    0.3     0.0    0.3

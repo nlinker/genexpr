@@ -6,7 +6,7 @@ It's recommended to thoroughly study RWH, chapter on profiling and optimization.
 
 From the command line:
 ```
-stack build --profile && stack exec -- teh-main +RTS -p
+stack clean && stack build --profile && stack exec -- teh-main +RTS -p
 ```
 Then teh-main.hprof
 ```
