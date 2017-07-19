@@ -110,9 +110,12 @@ testRB = do
       putStrLn $ ">>> insert x t = " ++ show t'
       return t'
 
-testFT :: IO MyFTree
+testFT :: IO ()
 testFT = do
-  let xs = map Elem [1 .. 7] :: [Elem Int]
-  let ft = FT.fromList xs
+  let ft = mkFt [1..9]
   putStrLn $ ">>> ft=" ++ show ft
-  return ft
+
+mkFt :: [Int] -> MyFTree
+mkFt xs =
+  let es = map Elem $ reverse xs
+  in FT.fromList es
