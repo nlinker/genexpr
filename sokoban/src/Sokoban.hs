@@ -101,7 +101,7 @@ type MyFTree = FT.FingerTree (Sum Int) (Elem Int)
 
 testRB :: IO ()
 testRB = do
-  let xs = [1 .. 7] :: [Integer]
+  let xs = [1 .. 6] :: [Integer]
   ts <- foldM doStuff RB.E xs :: IO (RB.Tree Integer)
   putStrLn $ ">>> final = " ++ show ts
   where
@@ -112,7 +112,7 @@ testRB = do
 
 testFT :: IO ()
 testFT = do
-  let ft = mkFt [1..9]
+  let ft = mkFt [1 .. 9]
   putStrLn $ ">>> ft=" ++ show ft
 
 mkFt :: [Int] -> MyFTree
