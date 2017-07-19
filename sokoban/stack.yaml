@@ -1,5 +1,11 @@
 resolver: lts-8.17
 packages:
 - '.'
+
+flags:
+  fingertree:
+    TESTING: true
+
 extra-deps:
-- cabal-info-0.1.0.0
+  - cabal-info-0.1.0.0
+  - fingertree-0.1.1.0

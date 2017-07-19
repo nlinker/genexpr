@@ -25,17 +25,18 @@ tests:
       - sokoban
       - hspec
 
-
 dependencies:
- - base
- - bytestring
- - contravariant
- - free
- - hashable
- - hashmap
- - MonadRandom
- - mtl
- - template-haskell
- - text
- - transformers
- - vector
+  - base
+  - bytestring
+  - contravariant
+  - free
+  - hashable
+  - hashmap
+  - MonadRandom
+  - mtl
+  - template-haskell
+  - text
+  - transformers
+  - vector
+  - deepseq
+  - fingertree
