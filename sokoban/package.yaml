@@ -39,3 +39,4 @@ dependencies:
   - transformers
   - vector
   - deepseq
+  - array
