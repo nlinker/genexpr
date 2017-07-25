@@ -1,0 +1,16 @@
+name: small-problems
+version: 0.1.0
+ghc-options: -threaded -Wall -fno-warn-name-shadowing
+
+executables:
+  small-problems:
+    main: Main.hs
+    source-dirs:
+      - src
+
+dependencies:
+  - base
+  - bytestring
+  - text
+  - vector
+  - array
