@@ -51,3 +51,6 @@ performIt n arr temp = do
       forM_ [0..n-1] $ \i -> do
         x <- readArray a2 i
         writeArray a1 i x
+
+getAll :: Read a => IO [a]
+getAll = fmap (fmap read . words) getContents
