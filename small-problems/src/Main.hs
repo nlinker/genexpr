@@ -8,6 +8,8 @@ import Control.Monad       (forM)
 import Data.Char           (isSpace)
 import System.IO.Error     (isEOFError)
 
+-- http://informatics.mccme.ru/moodle/mod/statements/view3.php?chapterid=1005#1
+
 data Route = Route
   { ki    :: Integer -- how many elements in stops
   , stops :: [(Integer, Integer)] -- train route, [(town number, time)]
