@@ -70,39 +70,42 @@ kickDijkstra = do
   let rest = S.delete initial $ nodes g
   let infinity node = node :-> Dist 999999999
   let heap = fromList $ (initial :-> Dist 0) : map infinity (S.toList rest)
-
-  print g
+  path <- mainLoop g heap S.empty M.empty
+  print path
   undefined
---
---  let nv = length arcs
---  let firstNode = head arcs
---  let unexplored = IS.fromList [2 .. nv]
---  -- initialize heap to 'infinity'
---  let heap' = fromList $ map (\x -> Node x :-> Dist 999999999) [2 .. nv]
---  -- replaces distances for nodes reachable from start
---  let heap = updatePrioQueue 0 firstNode heap'
---  let paths = mainLoop g IS.empty heap []
---  return paths
+
+mainLoop :: (Monad m) => Graph -> PrioQueue -> Explored -> Path -> m Path
+mainLoop g heap exp path = do
+  let bind' = findMin heap
+  case bind' of
+    Nothing ->
+      return path
+    Just (mn :-> md) -> do
+      -- found minimal node with the distance
+      let heap1 = deleteMin heap
+      let as' = M.lookup mn (arcs g)
+      let path1 = M.insert mn path
+      undefined
+--      let exp1 = S.insert mn exs
+--      mainLoop g exp1 hp2 res1
 
 -- updatePrioQueue takes minDist to newly explored node,
 -- and list of all edges from the new node
---updatePrioQueue :: Dist -> Arcs -> PrioQueue -> PrioQueue
---updatePrioQueue minDist (Arcs _ as)  heap = foldl' go heap as
---  where
---    go :: PrioQueue -> Arc -> PrioQueue
---    go hp (Arc n d) = adjust (\p -> min p $ minDist + d) n hp
+updatePrioQueue :: [(Node, Dist)] -> Dist -> PrioQueue -> PrioQueue
+updatePrioQueue nodes minDist heap = foldl' go heap nodes
+  where
+    up d p =
+      let Dist md = minDist in
+      let Dist nd = d in
+      min p $ Dist (md + nd)
+    go :: PrioQueue -> (Node, Dist) -> PrioQueue
+    go hp (n, d) = adjust (up d) n hp
+
 
 --mainLoop :: (Monad m) => Graph -> Explored -> PrioQueue -> Result -> m Result
 --mainLoop g exs hp res = do
 --  let bind' = findMin hp
 --  case bind' of
---    Nothing -> res
---    Just (mn :-> md) ->
---      let hp1 = deleteMin hp
---      let hp2 = updatePrioQueue md theArcs hp1
---      let res1 = Arc mn md : res
---      let exp1 = IS.insert mn exs
---      mainLoop g exp1 hp2 res1
 --  where
 --    Graph arcs = g
 --    theArcs :: [Arc]
@@ -117,7 +120,6 @@ kickDijkstra = do
 getGraph :: String -> IO Graph
 getGraph path = do
   ls <- (map (BS.split '\t') . BS.lines) `fmap` BS.readFile path
-  traceShowM ls
   let g = Graph S.empty M.empty M.empty
   foldM processLine g ls
   where
