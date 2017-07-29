@@ -5,19 +5,18 @@
 
 module T1005.Main where
 
-import Debug.Trace
-import Control.Applicative ((<$>), (<*>), pure, Applicative)
+import Control.Applicative (Applicative, pure, (<$>), (<*>))
 import Control.Exception   (handle, throwIO)
-import Control.Monad       (forM, foldM)
+import Control.Monad       (foldM, forM)
 import Data.Char           (isSpace)
 import Data.Foldable       (foldl')
-import Prelude             hiding (lookup, null, exp)
+import Debug.Trace
+import Prelude             hiding (exp, lookup, null)
 import System.IO.Error     (isEOFError)
 
 import qualified Data.ByteString.Char8 as BS
-import qualified Data.Set              as S
-import qualified Data.List             as L
 import qualified Data.Map              as M
+import qualified Data.Set              as S
 import qualified Prelude               as P (foldr, null)
 
 -- http://informatics.mccme.ru/moodle/mod/statements/view3.php?chapterid=1005#1
@@ -39,7 +38,10 @@ main = do
   print $ calc ctx
 
 calc :: Ctx -> Integer
-calc _ = -1
+calc Ctx{..} = runIdentity $ do
+  let town = [1..n]
+  let route = [1..m]
+  return (-1)
 
 -------------------------------------------------------
 --------------- Dijkstra Algorithm---------------------
@@ -50,10 +52,10 @@ newtype Dist = Dist Int deriving (Eq, Ord, Show)
 -- Graph is the nodes and adjacency lists for all nodes
 data Graph = Graph
   { nodes :: S.Set Node
-  , arcs :: M.Map Node [(Node, Dist)]
+  , arcs  :: M.Map Node [(Node, Dist)]
   } deriving (Show)
 
-type Path = M.Map (Node, Dist) Node
+type Path = M.Map Node (Node, Dist)
 type Explored = S.Set Node
 type PrioQueue = PSQ Node Dist
 
@@ -61,8 +63,9 @@ kickDijkstra :: IO ()
 kickDijkstra = do
   let initial = Node 1
   g <- getGraph "dijkstra.txt"
+  traceShowM g
   p <- dijkstra g initial
-  print p
+  traceShowM p
 
 dijkstra :: (Monad m) => Graph -> Node -> m Path
 dijkstra g initial = do
@@ -94,7 +97,7 @@ updatePath :: Path -> Node -> [(Node, Dist)] -> Path
 updatePath path minNode = foldl' yo path
   where
     yo :: Path -> (Node, Dist) -> Path
-    yo p t = M.insert t minNode p
+    yo p (n, d) = M.insert n (minNode, d) p
 
 -- updateHeap takes minDist to newly explored node,
 -- and list of all edges from the new node
@@ -189,6 +192,8 @@ parseCtx = do
 -------------------------------------------------------
 --------------- Priority Queue ------------------------
 -------------------------------------------------------
+-- the priority queue is adapted from
+-- http://hackage.haskell.org/package/PSQueue-1.1/docs/src/Data-PSQueue.html
 
 -- | @k :-> p@ binds the key @k@ with the priority @p@.
 data Binding k p = k :-> p deriving (Eq, Ord, Show, Read)
