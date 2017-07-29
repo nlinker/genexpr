@@ -44,36 +44,33 @@ calc _ = -1
 -------------------------------------------------------
 --------------- Dijkstra Algorithm---------------------
 -------------------------------------------------------
--- Graph node is the pair of vertices (city, route)
--- Graph is the nodes and adjacency lists for all nodes
---data Node = Node Int Int  -- x y weight
---data Graph v = Graph [v] (M.Map v [v])
 newtype Node = Node Int deriving (Eq, Ord, Show)
 newtype Dist = Dist Int deriving (Eq, Ord, Show)
 
+-- Graph is the nodes and adjacency lists for all nodes
 data Graph = Graph
   { nodes :: S.Set Node
   , arcs :: M.Map Node [(Node, Dist)]
   } deriving (Show)
 
-data Arc = Arc Node Dist deriving (Show)
-type Path = M.Map Node Node
+type Path = M.Map (Node, Dist) Node
 type Explored = S.Set Node
 type PrioQueue = PSQ Node Dist
 
-kickDijkstra :: IO Path
+kickDijkstra :: IO ()
 kickDijkstra = do
-  g <- getGraph "dijkstra.txt"
-  traceShowM g
-  -- initial node 1
   let initial = Node 1
+  g <- getGraph "dijkstra.txt"
+  p <- dijkstra g initial
+  print p
+
+dijkstra :: (Monad m) => Graph -> Node -> m Path
+dijkstra g initial = do
   let rest = S.delete initial $ nodes g
   let infinity node = node :-> Dist 999999999
   let heap = fromList $ (initial :-> Dist 0) : map infinity (S.toList rest)
   let path = M.empty :: Path
-  pathEnd <- mainLoop g heap S.empty M.empty
-  print pathEnd
-  return pathEnd
+  mainLoop g heap S.empty M.empty
 
 mainLoop :: (Monad m) => Graph -> PrioQueue -> Explored -> Path -> m Path
 mainLoop g heap exp path = do
@@ -93,10 +90,11 @@ mainLoop g heap exp path = do
       let exp2 = S.insert mn exp
       mainLoop g heap2 exp2 path2
 
-updatePath :: M.Map Node Node -> Node -> [(Node, Dist)] -> M.Map Node Node
+updatePath :: Path -> Node -> [(Node, Dist)] -> Path
 updatePath path minNode = foldl' yo path
   where
-    yo p (n, _) = M.insert n minNode p
+    yo :: Path -> (Node, Dist) -> Path
+    yo p t = M.insert t minNode p
 
 -- updateHeap takes minDist to newly explored node,
 -- and list of all edges from the new node
@@ -111,22 +109,14 @@ updateHeap heap minDist = foldl' go heap
     go :: PrioQueue -> (Node, Dist) -> PrioQueue
     go h (n, d) = adjust (up d) n h
 
-
---mainLoop :: (Monad m) => Graph -> Explored -> PrioQueue -> Result -> m Result
---mainLoop g exs hp res = do
---  let bind' = findMin hp
---  case bind' of
---  where
---    Graph arcs = g
---    theArcs :: [Arc]
---    theArcs =
---    -- filter out newEdges that point to explored
---    notExplored (node, _) = not (IS.member node exs)
---    newCuttingEdges = filter notExplored (arcs !! i :: Arcs)
---    --newCuttingEdges = newEdges
-
--- foldl' :: (a -> b -> a) -> a -> [b] -> a
-
+-- Example file
+--1	2:10	3:20
+--2	4:15	5:50
+--3	4:30
+--4	5:30
+--5	6:5
+--6	7:2
+--7
 getGraph :: String -> IO Graph
 getGraph path = do
   ls <- (map (BS.split '\t') . BS.lines) `fmap` BS.readFile path
