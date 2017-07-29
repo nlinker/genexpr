@@ -11,7 +11,7 @@ import Control.Exception   (handle, throwIO)
 import Control.Monad       (forM, foldM)
 import Data.Char           (isSpace)
 import Data.Foldable       (foldl')
-import Prelude             hiding (lookup, null)
+import Prelude             hiding (lookup, null, exp)
 import System.IO.Error     (isEOFError)
 
 import qualified Data.ByteString.Char8 as BS
@@ -53,8 +53,7 @@ newtype Dist = Dist Int deriving (Eq, Ord, Show)
 
 data Graph = Graph
   { nodes :: S.Set Node
-  , arcs :: M.Map Node [Node]
-  , dists :: M.Map (Node, Node) Dist
+  , arcs :: M.Map Node [(Node, Dist)]
   } deriving (Show)
 
 data Arc = Arc Node Dist deriving (Show)
@@ -65,14 +64,16 @@ type PrioQueue = PSQ Node Dist
 kickDijkstra :: IO Path
 kickDijkstra = do
   g <- getGraph "dijkstra.txt"
+  traceShowM g
   -- initial node 1
   let initial = Node 1
   let rest = S.delete initial $ nodes g
   let infinity node = node :-> Dist 999999999
   let heap = fromList $ (initial :-> Dist 0) : map infinity (S.toList rest)
-  path <- mainLoop g heap S.empty M.empty
-  print path
-  undefined
+  let path = M.empty :: Path
+  pathEnd <- mainLoop g heap S.empty M.empty
+  print pathEnd
+  return pathEnd
 
 mainLoop :: (Monad m) => Graph -> PrioQueue -> Explored -> Path -> m Path
 mainLoop g heap exp path = do
@@ -84,22 +85,31 @@ mainLoop g heap exp path = do
       -- found minimal node with the distance
       let heap1 = deleteMin heap
       let as' = M.lookup mn (arcs g)
-      let path1 = M.insert mn path
-      undefined
---      let exp1 = S.insert mn exs
---      mainLoop g exp1 hp2 res1
+      let (heap2, path2) = case as' of
+            -- lookup into arcs in g for min node failed
+            -- Nothing -> error "inconsistent data"
+            Nothing -> (heap1, path)
+            Just as -> (updateHeap heap1 md as, updatePath path mn as)
+      let exp2 = S.insert mn exp
+      mainLoop g heap2 exp2 path2
 
--- updatePrioQueue takes minDist to newly explored node,
--- and list of all edges from the new node
-updatePrioQueue :: [(Node, Dist)] -> Dist -> PrioQueue -> PrioQueue
-updatePrioQueue nodes minDist heap = foldl' go heap nodes
+updatePath :: M.Map Node Node -> Node -> [(Node, Dist)] -> M.Map Node Node
+updatePath path minNode = foldl' yo path
   where
-    up d p =
+    yo p (n, _) = M.insert n minNode p
+
+-- updateHeap takes minDist to newly explored node,
+-- and list of all edges from the new node
+updateHeap :: PrioQueue -> Dist -> [(Node, Dist)] -> PrioQueue
+updateHeap heap minDist = foldl' go heap
+  where
+    -- e is the old distance was in the queue
+    up d e =
       let Dist md = minDist in
       let Dist nd = d in
-      min p $ Dist (md + nd)
+      min e $ Dist (md + nd)
     go :: PrioQueue -> (Node, Dist) -> PrioQueue
-    go hp (n, d) = adjust (up d) n hp
+    go h (n, d) = adjust (up d) n h
 
 
 --mainLoop :: (Monad m) => Graph -> Explored -> PrioQueue -> Result -> m Result
@@ -120,7 +130,7 @@ updatePrioQueue nodes minDist heap = foldl' go heap nodes
 getGraph :: String -> IO Graph
 getGraph path = do
   ls <- (map (BS.split '\t') . BS.lines) `fmap` BS.readFile path
-  let g = Graph S.empty M.empty M.empty
+  let g = Graph S.empty M.empty
   foldM processLine g ls
   where
     conv (x, y) = (Node x, Dist y)
@@ -128,15 +138,14 @@ getGraph path = do
     processLine g (x:xs) = do
       let an = Node $ convert x
       let as = map (conv . splitter) xs
-      let updateArcs old (n, _) =
+      let updateArcs old (n, d) =
             case M.lookup an old of
-              Just ns -> M.insert an (n:ns) old
+              Just ns -> M.insert an ((n, d):ns) old
               Nothing -> M.insert an [] old
       let updateDists old (n, d) = M.insert (an, n) d old
       let nodes1 = S.insert an (nodes g)
       let arcs1 = foldl' updateArcs (M.insert an [] $ arcs g) as
-      let dists1 = foldl' updateDists (dists g) as
-      return $ Graph nodes1 arcs1 dists1
+      return $ Graph nodes1 arcs1
     processLine g [] = error "processLine"
 
 convert :: BS.ByteString -> Int
