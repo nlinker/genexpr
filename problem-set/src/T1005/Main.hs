@@ -141,7 +141,7 @@ buildCol ctx@Ctx{..} j =
 -- some test for the algorithm
 kickDijkstra :: IO ()
 kickDijkstra = do
-  let initial = Node 16
+  let initial = Node 1
   g <- loadGraph "dijkstra.txt"
   traceShowM g
   p <- dijkstra g initial
@@ -170,14 +170,17 @@ mainLoop g heap exp path = do
       do
         -- found minimal node with the distance
         let heap1 = deleteMin heap
-        let as' = M.lookup mn (arcs g)
-        let (heap2, path2) = case as' of
+        let arcs' = M.lookup mn (arcs g)
+        let (heap2, path2) = case arcs' of
               -- lookup into arcs in g for min node failed
               -- Nothing -> error "inconsistent data"
               Nothing -> (heap1, path)
-              Just as -> (updateHeap heap1 md as, updatePath path mn as)
+              Just as ->
+                -- skip already explored nodes
+                let as1 = filter (\(n, _) -> S.notMember n exp) as in
+                (updateHeap heap1 md as1, updatePath path mn as1)
         let exp2 = S.insert mn exp
-        traceShowM $ "node=(" ++ show mn ++ "," ++ show md ++ "\theap2=" ++ show heap2
+        -- traceShowM $ "node=(" ++ show mn ++ "," ++ show md ++ "\theap2=" ++ show heap2
         mainLoop g heap2 exp2 path2
 
 updatePath :: Path -> Node -> [(Node, Dist)] -> Path

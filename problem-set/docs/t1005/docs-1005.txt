@@ -131,16 +131,37 @@ g =
         ]
   }
 
-p =
-  fromList
-    [ (Node 1, (Node 16, Dist 3))
-    , (Node 2, (Node 7, Dist 0))
-    , (Node 7, (Node 2, Dist 0))
-    , (Node 9, (Node 7, Dist 5))
-    , (Node 12, (Node 13, Dist 15))
-    , (Node 13, (Node 14, Dist 3))
-    , (Node 14, (Node 15, Dist 17))
-    , (Node 18, (Node 13, Dist 20))
-    , (Node 19, (Node 18, Dist 5))
-    ]
+Why this change is important:
+  Just rcs ->
+    -- skip already explored nodes
+    let rcs1 = filter (\(n, _) -> S.notMember n exp) rcs in
+    (updateHeap heap1 md rcs1, updatePath path mn rcs1)
 
+versus
+  Just as -> (updateHeap heap1 md as, updatePath path mn as)
+
+
+-- filter
+fromList
+  [ (Node 2, (Node 1, Dist 5))
+  , (Node 7, (Node 2, Dist 0))
+  , (Node 9, (Node 7, Dist 5))
+  , (Node 12, (Node 13, Dist 15))
+  , (Node 13, (Node 14, Dist 3))
+  , (Node 14, (Node 9, Dist 2))
+  , (Node 18, (Node 13, Dist 20))
+  , (Node 19, (Node 18, Dist 5))
+  ]
+
+-- no filter
+fromList
+  [ (Node 1, (Node 16, Dist 3))
+  , (Node 2, (Node 7, Dist 0))
+  , (Node 7, (Node 2, Dist 0))
+  , (Node 9, (Node 7, Dist 5))
+  , (Node 12, (Node 13, Dist 15))
+  , (Node 13, (Node 14, Dist 3))
+  , (Node 14, (Node 15, Dist 17))
+  , (Node 18, (Node 16, Dist 38))
+  , (Node 19, (Node 18, Dist 5))
+  ]
