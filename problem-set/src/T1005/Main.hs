@@ -143,8 +143,8 @@ kickDijkstra :: IO ()
 kickDijkstra = do
   let initial = Node 16
   g <- loadGraph "dijkstra.txt"
-  p <- dijkstra g initial
   traceShowM g
+  p <- dijkstra g initial
   traceShowM p
 
 infinity :: Dist
