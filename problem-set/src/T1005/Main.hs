@@ -46,20 +46,22 @@ type Path = M.Map Node (Node, Dist)
 type Explored = S.Set Node
 type PrioQueue = PSQ Node Dist
 
+ctx0 = Ctx
+  { n = 5
+  , e = 3
+  , m = 4
+  , tt = M.fromList
+   [ ((1,1),5),((1,2),10)
+   , ((2,2),10),((2,4),15)
+   , ((3,2),35),((3,3),20),((3,4),17),((3,5),0)
+   , ((4,1),2),((4,3),40),((4,4),45)
+   ]
+  }
+
 main :: IO ()
 main = do
   -- ctx <- parseCtx
-  let ctx = Ctx
-        { n = 5
-        , e = 3
-        , m = 4
-        , tt = M.fromList
-          [ ((1,1),5),((1,2),10)
-          , ((2,2),10),((2,4),15)
-          , ((3,2),35),((3,3),20),((3,4),17),((3,5),0)
-          , ((4,1),2),((4,3),40),((4,4),45)
-          ]
-        }
+  let ctx = ctx0
   len <- calc ctx
   print len
 
@@ -71,21 +73,36 @@ main = do
 -- compare :: Ord a => a -> a -> Ordering
 -- curry :: ((a, b) -> c) -> a -> b -> c
 
-calc :: (Monad m) => Ctx -> m Path
+calc :: (Monad m) => Ctx -> m Int
 calc ctx@Ctx {..} = do
     -- use monad to make the syntax nicer
-    let towns = [1 .. n]
-    let routes = [1 .. m]
-    let nodes = S.fromList $ map Node [1 .. m * n]
-    let arcs = buildArcs
-    let g = Graph nodes arcs
+    g <- buildGraph ctx
     traceShowM g
-    dijkstra g (Node 16)
+    -- find the minimal node in the first column
+    let col1 = buildCol ctx 1
+    -- all the nodes in the column e
+    let nes = buildCol ctx e
+    if P.null col1 || P.null nes
+      then return (-1)
+      else do
+        -- d0 = initial time delay
+        let (x0, d0) = head col1
+        path <- dijkstra g (Node x0)
+        -- path is like
+        --   fromList [ (Node 2, (Node 1, Dist 5)), (Node 7, (Node 2, Dist 0))]
+        -- find the minimum distance for all nodes in column e
+        -- let md = mapMaybes (\(x, d) -> M.lookup x path) nes
+        return $ M.size path
+
+buildGraph :: Monad m => Ctx -> m Graph
+buildGraph ctx@Ctx{..} = do
+  let nodes = S.fromList $ map Node [1 .. m * n]
+  let arcs = buildArcs
+  return $ Graph nodes arcs
   where
     buildArcs = do
       let mkEmpty x = (Node x, [] :: [(Node, Dist)])
       let arcs0 = M.fromList $ map mkEmpty [1 .. m * n]
-      -- apply row and column updates
       let arcs1 = foldl' updateArcsR arcs0 [1 .. m]
       let arcs2 = foldl' updateArcsC arcs1 [1 .. n]
       arcs2
@@ -93,6 +110,20 @@ calc ctx@Ctx {..} = do
     updateArcsR as i = foldl' updateArcR as $ diffs $ buildRow ctx i
     -- go by columns and update arcs
     updateArcsC as j = foldl' updateArcC as $ diffs $ buildCol ctx j
+
+
+-- path, starting node, final node
+calcDistance :: Path -> Node -> Node -> Maybe Int
+calcDistance path = calcD 0
+  where
+    calcD acc x0 x1 =
+      case M.lookup x1 path of
+        Nothing     -> Nothing
+        Just (x, Dist d) ->
+          if x == x0
+            then Just (acc + d)
+            else calcD (acc + d) x0 x
+
 
 -- update arcs using horizontal cell pair
 updateArcR as (n1, n2, d) =
@@ -155,7 +186,7 @@ dijkstra g initial = do
   let rest = S.delete initial $ nodes g
   let inf cell = cell :-> infinity
   let heap = fromList $ (initial :-> Dist 0) : map inf (S.toList rest)
-  let path = M.empty :: Path
+  let path = M.singleton initial (initial, Dist 0) :: Path
   mainLoop g heap S.empty M.empty
 
 mainLoop :: (Monad m) => Graph -> PrioQueue -> Explored -> Path -> m Path
