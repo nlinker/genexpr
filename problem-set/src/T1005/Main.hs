@@ -58,6 +58,17 @@ ctx0 = Ctx
    ]
   }
 
+-- result is -1
+ctx1 = Ctx
+  { n = 3
+  , e = 2
+  , m = 2
+  , tt = M.fromList
+   [ ((1,1),2),((1,2),20)
+   , ((2,2),17),((2,3),23)
+   ]
+  }
+
 main :: IO ()
 main = do
   -- ctx <- parseCtx
@@ -188,8 +199,8 @@ infinity = Dist 999999999
 dijkstra :: (Monad m) => Graph -> Node -> m Path
 dijkstra g initial = do
   let rest = S.delete initial $ nodes g
-  let inf cell = cell :-> infinity
-  let heap = fromList $ (initial :-> Dist 0) : map inf (S.toList rest)
+  let mkInf x = x :-> infinity
+  let heap = fromList $ (initial :-> Dist 0) : map mkInf (S.toList rest)
   let path = M.singleton initial (initial, Dist 0) :: Path
   mainLoop g heap S.empty M.empty
 
