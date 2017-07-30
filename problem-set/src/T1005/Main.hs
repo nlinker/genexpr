@@ -1,4 +1,5 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 {-# OPTIONS_GHC -fno-warn-unused-binds #-}
 {-# OPTIONS_GHC -fno-warn-unused-matches #-}
@@ -10,6 +11,9 @@ import Control.Exception   (handle, throwIO)
 import Control.Monad       (foldM, forM)
 import Data.Char           (isSpace)
 import Data.Foldable       (foldl')
+import Data.Function       (on)
+import Data.List           (sortBy)
+import Data.Maybe          (mapMaybe, fromJust)
 import Debug.Trace
 import Prelude             hiding (exp, lookup, null)
 import System.IO.Error     (isEOFError)
@@ -20,58 +24,137 @@ import qualified Data.Set              as S
 import qualified Prelude               as P (foldr, null)
 
 -- http://informatics.mccme.ru/moodle/mod/statements/view3.php?chapterid=1005#1
-data Route = Route
-  { ki    :: Integer -- how many elements in stops
-  , stops :: [(Integer, Integer)] -- train route, [(town number, time)]
-  } deriving (Eq, Show)
-
+type TimeTable = M.Map (Int, Int) Int
 data Ctx = Ctx
-  { n   :: Integer -- total number of towns
-  , e   :: Integer -- destination
-  , m   :: Integer -- the number of routes
-  , rts :: [Route] -- time table for the trains
+  { n  :: Int -- total number of towns
+  , e  :: Int -- destination
+  , m  :: Int -- the number of routes
+  , tt :: TimeTable -- time table for the trains
   } deriving (Eq, Show)
 
-main :: IO ()
-main = do
-  ctx <- parseCtx
-  print $ calc ctx
-
-calc :: Ctx -> Integer
-calc Ctx{..} = runIdentity $ do
-  let town = [1..n]
-  let route = [1..m]
-  return (-1)
-
--------------------------------------------------------
---------------- Dijkstra Algorithm---------------------
--------------------------------------------------------
 newtype Node = Node Int deriving (Eq, Ord, Show)
 newtype Dist = Dist Int deriving (Eq, Ord, Show)
 
 -- Graph is the nodes and adjacency lists for all nodes
 data Graph = Graph
   { nodes :: S.Set Node
-  , arcs  :: M.Map Node [(Node, Dist)]
+  , arcs  :: Arcs
   } deriving (Show)
 
+type Arcs = M.Map Node [(Node, Dist)]
 type Path = M.Map Node (Node, Dist)
 type Explored = S.Set Node
 type PrioQueue = PSQ Node Dist
 
+main :: IO ()
+main = do
+  -- ctx <- parseCtx
+  let ctx = Ctx
+        { n = 5
+        , e = 3
+        , m = 4
+        , tt = M.fromList
+          [ ((1,1),5),((1,2),10)
+          , ((2,2),10),((2,4),15)
+          , ((3,2),35),((3,3),20),((3,4),17),((3,5),0)
+          , ((4,1),2),((4,3),40),((4,4),45)
+          ]
+        }
+  len <- calc ctx
+  print len
+
+--undefined
+
+-- useful functions
+-- mapMaybe :: (a -> Maybe b) -> [a] -> [b]
+-- on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
+-- compare :: Ord a => a -> a -> Ordering
+-- curry :: ((a, b) -> c) -> a -> b -> c
+
+calc :: (Monad m) => Ctx -> m Path
+calc ctx@Ctx {..} = do
+    -- use monad to make the syntax nicer
+    let towns = [1 .. n]
+    let routes = [1 .. m]
+    let nodes = S.fromList $ map Node [1 .. m * n]
+    let arcs = buildArcs
+    let g = Graph nodes arcs
+    traceShowM g
+    dijkstra g (Node 16)
+  where
+    buildArcs = do
+      let mkEmpty x = (Node x, [] :: [(Node, Dist)])
+      let arcs0 = M.fromList $ map mkEmpty [1 .. m * n]
+      -- apply row and column updates
+      let arcs1 = foldl' updateArcsR arcs0 [1 .. m]
+      let arcs2 = foldl' updateArcsC arcs1 [1 .. n]
+      arcs2
+    -- go by rows and update arcs
+    updateArcsR as i = foldl' updateArcR as $ diffs $ buildRow ctx i
+    -- go by columns and update arcs
+    updateArcsC as j = foldl' updateArcC as $ diffs $ buildCol ctx j
+
+-- update arcs using horizontal cell pair
+updateArcR as (n1, n2, d) =
+  let n1s = fromJust $ M.lookup n1 as
+  in M.insert n1 ((n2, d) : n1s) as
+
+-- update arcs using vertical cell pair
+updateArcC as (n1, n2, d) =
+    if d == Dist 0 then
+      -- insert two arcs, back and forward
+      let n1s = fromJust $ M.lookup n1 as in
+      let n2s = fromJust $ M.lookup n2 as in
+      M.insert n1 ((n2, d) : n1s) $
+        M.insert n2 ((n1, d) : n2s) as
+    else
+      let n1s = fromJust $ M.lookup n1 as in
+      M.insert n1 ((n2, d) : n1s) as
+
+-- assumes the list is sorted by weights
+-- [((9,15),(14,17)),((14,17),(19,45))] -> [(Node 9,Node 14,Dist 2),(Node 14,Node 19,Dist 28)]
+diffs :: [(Int, Int)] -> [(Node, Node, Dist)]
+diffs xs =
+  let diffPair (n1, w1) (n2, w2) = (Node n1, Node n2, Dist $ w2 - w1)
+  in zipWith diffPair xs (tail xs)
+
+-- return absolute node number
+-- e.g. for matrix 4x5
+-- cell (4,2) will be 17
+-- cell (3,5) will be 15
+cell :: Ctx -> Int -> Int -> Int
+cell ctx i j = (i - 1) * n ctx + j
+
+buildRow :: Ctx -> Int -> [(Int, Int)]
+buildRow ctx@Ctx{..} i =
+  let select j = (\w -> (cell ctx i j, w)) `fmap` M.lookup (i, j) tt
+  in sortBy (compare `on` snd) $ mapMaybe select [1 .. n]
+
+buildCol :: Ctx -> Int -> [(Int, Int)]
+buildCol ctx@Ctx{..} j =
+  let select i = (\w -> (cell ctx i j, w)) `fmap` M.lookup (i, j) tt
+  in sortBy (compare `on` snd) $ mapMaybe select [1 .. m]
+
+-------------------------------------------------------
+--------------- Dijkstra Algorithm---------------------
+-------------------------------------------------------
+-- some test for the algorithm
 kickDijkstra :: IO ()
 kickDijkstra = do
-  let initial = Node 1
-  g <- getGraph "dijkstra.txt"
-  traceShowM g
+  let initial = Node 16
+  g <- loadGraph "dijkstra.txt"
   p <- dijkstra g initial
+  traceShowM g
   traceShowM p
+
+infinity :: Dist
+infinity = Dist 999999999
 
 dijkstra :: (Monad m) => Graph -> Node -> m Path
 dijkstra g initial = do
   let rest = S.delete initial $ nodes g
-  let infinity node = node :-> Dist 999999999
-  let heap = fromList $ (initial :-> Dist 0) : map infinity (S.toList rest)
+  let inf cell = cell :-> infinity
+  let heap = fromList $ (initial :-> Dist 0) : map inf (S.toList rest)
   let path = M.empty :: Path
   mainLoop g heap S.empty M.empty
 
@@ -81,17 +164,21 @@ mainLoop g heap exp path = do
   case bind' of
     Nothing ->
       return path
-    Just (mn :-> md) -> do
-      -- found minimal node with the distance
-      let heap1 = deleteMin heap
-      let as' = M.lookup mn (arcs g)
-      let (heap2, path2) = case as' of
-            -- lookup into arcs in g for min node failed
-            -- Nothing -> error "inconsistent data"
-            Nothing -> (heap1, path)
-            Just as -> (updateHeap heap1 md as, updatePath path mn as)
-      let exp2 = S.insert mn exp
-      mainLoop g heap2 exp2 path2
+    Just (mn :-> md) ->
+      -- warning: causes (Node 14,(Node 15,Dist 17)) which is wrong
+      -- if md == infinity then return path else
+      do
+        -- found minimal node with the distance
+        let heap1 = deleteMin heap
+        let as' = M.lookup mn (arcs g)
+        let (heap2, path2) = case as' of
+              -- lookup into arcs in g for min node failed
+              -- Nothing -> error "inconsistent data"
+              Nothing -> (heap1, path)
+              Just as -> (updateHeap heap1 md as, updatePath path mn as)
+        let exp2 = S.insert mn exp
+        traceShowM $ "node=(" ++ show mn ++ "," ++ show md ++ "\theap2=" ++ show heap2
+        mainLoop g heap2 exp2 path2
 
 updatePath :: Path -> Node -> [(Node, Dist)] -> Path
 updatePath path minNode = foldl' yo path
@@ -120,8 +207,8 @@ updateHeap heap minDist = foldl' go heap
 --5	6:5
 --6	7:2
 --7
-getGraph :: String -> IO Graph
-getGraph path = do
+loadGraph :: String -> IO Graph
+loadGraph path = do
   ls <- (map (BS.split '\t') . BS.lines) `fmap` BS.readFile path
   let g = Graph S.empty M.empty
   foldM processLine g ls
@@ -171,23 +258,37 @@ readWord = getWord >>= readIO
 readList :: Read a => String -> [a]
 readList = map read . words
 
-parseRoute :: IO Route
-parseRoute = do
-  ki <- readWord
+-- carry the route number
+parseRoute :: Int -> IO (Int, [(Int,Int)])
+parseRoute ri = do
+  (ki :: Int) <- readWord
   stops <-
     forM [1 .. ki] $ \_ -> do
       x <- readWord
       y <- readWord
       return (x, y)
-  return Route {..}
+  return (ri, stops)
 
+-- example input
+--5 3 4
+--2	1 5	2 10
+--2	2 10	4 15
+--4	2 35	3 20	4 17	5 0
+--3	1 2	3 40	4 45
 parseCtx :: IO Ctx
 parseCtx = do
   n <- readWord
   e <- readWord
   m <- readWord
-  rts <- mapM (const parseRoute) [1 .. m]
+  rawTts <- mapM parseRoute [1 .. m]
+  let tt = foldl' updateTt M.empty rawTts
   return Ctx {..}
+  where
+    -- updateTt :: TimeTable -> (Int, [(Int, Int)]) -> TimeTable
+    updateTt tt (ri, stops) = foldl' (updateTtRow ri) tt stops
+    -- updateTtRow :: Int -> TimeTable -> (Int, Int) -> TimeTable
+    updateTtRow ri tt (i, t) = M.insert (ri, i) t tt
+
 
 -------------------------------------------------------
 --------------- Priority Queue ------------------------
@@ -406,12 +507,12 @@ atMosts :: (Ord k, Ord p) => p -> PSQ k p -> Sequ (Binding k p)
 atMosts _pt Void  = emptySequ
 atMosts pt (Winner k p t _) =  prune k p t
   where
-  prune k p t
+  prune _k _p _t
     | p > pt         = emptySequ
     | otherwise      = traverse k p t
-  traverse k p Start                     = singleSequ (k :-> p)
-  traverse k p (LLoser _ k' p' tl _m tr) = prune k' p' tl <> traverse k p tr
-  traverse k p (RLoser _ k' p' tl _m tr) = traverse k p tl <> prune k' p' tr
+  traverse _k _p Start                     = singleSequ (k :-> p)
+  traverse _k _p (LLoser _ k' p' tl _m tr) = prune k' p' tl <> traverse k p tr
+  traverse _k _p (RLoser _ k' p' tl _m tr) = traverse k p tl <> prune k' p' tr
 
 -- | /O(r(log n - log r))/ @atMostRange p (l,u) q@ is a list of all the bindings in
 -- @q@ with a priority less than @p@ and a key in the range @(l,u)@ inclusive.
@@ -425,15 +526,15 @@ atMostRanges :: (Ord k, Ord p) => p -> (k, k) -> PSQ k p -> Sequ (Binding k p)
 atMostRanges _pt _range Void = emptySequ
 atMostRanges pt range@(kl, kr) (Winner k p t _) = prune k p t
   where
-  prune k p t
+  prune _k _p _t
     | p > pt    = emptySequ
     | otherwise = traverse k p t
-  traverse k p Start
+  traverse _k _p Start
     | k `inrange` range = singleSequ (k :-> p)
     | otherwise         = emptySequ
-  traverse k p (LLoser _ k' p' tl m tr) =
+  traverse _k _p (LLoser _ k' p' tl m tr) =
     guard (kl <= m) (prune k' p' tl) <> guard (m <= kr) (traverse k p tr)
-  traverse k p (RLoser _ k' p' tl m tr) =
+  traverse _k _p (RLoser _ k' p' tl m tr) =
     guard (kl <= m) (traverse k p tl) <> guard (m <= kr) (prune k' p' tr)
 
 inrange :: (Ord a) => a -> (a, a) -> Bool

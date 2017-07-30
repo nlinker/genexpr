@@ -1,0 +1,146 @@
+main :: IO ()
+main = do
+  -- ctx <- parseCtx
+  let ctx = Ctx
+        { n = 5
+        , e = 3
+        , m = 4
+        , tt = M.fromList
+          [ ((1,1),5),((1,2),10)
+          , ((2,2),10),((2,4),15)
+          , ((3,2),35),((3,3),20),((3,4),17),((3,5),0)
+          , ((4,1),2),((4,3),40),((4,4),45)
+          ]
+        }
+  print $ runIdentity $ calc ctx
+
+module T1005.X where
+
+--buildGraph
+g =
+  Graph
+  { nodes =
+      fromList
+        [ Node 1
+        , Node 2
+        , Node 3
+        , Node 4
+        , Node 5
+        , Node 6
+        , Node 7
+        , Node 8
+        , Node 9
+        , Node 10
+        , Node 11
+        , Node 12
+        , Node 13
+        , Node 14
+        , Node 15
+        , Node 16
+        , Node 17
+        , Node 18
+        , Node 19
+        , Node 20
+        ]
+  , arcs =
+      fromList
+        [ (Node 1, [(Node 2, Dist 5)])
+        , (Node 2, [(Node 7, Dist 0)])
+        , (Node 3, [])
+        , (Node 4, [])
+        , (Node 5, [])
+        , (Node 6, [])
+        , (Node 7, [(Node 12, Dist 25), (Node 2, Dist 0), (Node 9, Dist 5)])
+        , (Node 8, [])
+        , (Node 9, [(Node 14, Dist 2)])
+        , (Node 10, [])
+        , (Node 11, [])
+        , (Node 12, [])
+        , (Node 13, [(Node 18, Dist 20), (Node 12, Dist 15)])
+        , (Node 14, [(Node 19, Dist 28), (Node 13, Dist 3)])
+        , (Node 15, [(Node 14, Dist 17)])
+        , (Node 16, [(Node 1, Dist 3), (Node 18, Dist 38)])
+        , (Node 17, [])
+        , (Node 18, [(Node 19, Dist 5)])
+        , (Node 19, [])
+        , (Node 20, [])
+        ]
+  }
+
+p =
+  fromList
+    [ (Node 1, (Node 16, Dist 3))
+    , (Node 2, (Node 7, Dist 0))
+    , (Node 7, (Node 2, Dist 0))
+    , (Node 9, (Node 7, Dist 5))
+    , (Node 12, (Node 13, Dist 15))
+    , (Node 13, (Node 14, Dist 3))
+    , (Node 14, (Node 15, Dist 17))
+    , (Node 18, (Node 16, Dist 38))
+    , (Node 19, (Node 18, Dist 5))
+    ]
+
+--kickDijkstra
+g =
+  Graph
+  { nodes =
+      fromList
+        [ Node 1
+        , Node 2
+        , Node 3
+        , Node 4
+        , Node 5
+        , Node 6
+        , Node 7
+        , Node 8
+        , Node 9
+        , Node 10
+        , Node 11
+        , Node 12
+        , Node 13
+        , Node 14
+        , Node 15
+        , Node 16
+        , Node 17
+        , Node 18
+        , Node 19
+        , Node 20
+        ]
+  , arcs =
+      fromList
+        [ (Node 1, [(Node 2, Dist 5)])
+        , (Node 2, [(Node 7, Dist 0)])
+        , (Node 3, [])
+        , (Node 4, [])
+        , (Node 5, [])
+        , (Node 6, [])
+        , (Node 7, [(Node 2, Dist 0), (Node 9, Dist 5), (Node 12, Dist 25)])
+        , (Node 8, [])
+        , (Node 9, [(Node 14, Dist 2)])
+        , (Node 10, [])
+        , (Node 11, [])
+        , (Node 12, [])
+        , (Node 13, [(Node 12, Dist 15), (Node 18, Dist 20)])
+        , (Node 14, [(Node 13, Dist 3), (Node 19, Dist 28)])
+        , (Node 15, [(Node 14, Dist 17)])
+        , (Node 16, [(Node 18, Dist 38), (Node 1, Dist 3)])
+        , (Node 17, [])
+        , (Node 18, [(Node 19, Dist 5)])
+        , (Node 19, [])
+        , (Node 20, [])
+        ]
+  }
+
+p =
+  fromList
+    [ (Node 1, (Node 16, Dist 3))
+    , (Node 2, (Node 7, Dist 0))
+    , (Node 7, (Node 2, Dist 0))
+    , (Node 9, (Node 7, Dist 5))
+    , (Node 12, (Node 13, Dist 15))
+    , (Node 13, (Node 14, Dist 3))
+    , (Node 14, (Node 15, Dist 17))
+    , (Node 18, (Node 13, Dist 20))
+    , (Node 19, (Node 18, Dist 5))
+    ]
+
