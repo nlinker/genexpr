@@ -75,24 +75,25 @@ main = do
 
 calc :: (Monad m) => Ctx -> m Int
 calc ctx@Ctx {..} = do
-    -- use monad to make the syntax nicer
-    g <- buildGraph ctx
-    traceShowM g
-    -- find the minimal node in the first column
-    let col1 = buildCol ctx 1
-    -- all the nodes in the column e
-    let nes = buildCol ctx e
-    if P.null col1 || P.null nes
-      then return (-1)
-      else do
-        -- d0 = initial time delay
-        let (x0, d0) = head col1
-        path <- dijkstra g (Node x0)
-        -- path is like
-        --   fromList [ (Node 2, (Node 1, Dist 5)), (Node 7, (Node 2, Dist 0))]
-        -- find the minimum distance for all nodes in column e
-        -- let md = mapMaybes (\(x, d) -> M.lookup x path) nes
-        return $ M.size path
+  -- use monad to make the syntax nicer
+  g <- buildGraph ctx
+  -- traceShowM g
+  let col1 = buildCol ctx 1 -- all the nodes in the first column
+  let nes = buildCol ctx e -- all the nodes in the column e
+  if P.null col1 || P.null nes
+    then return (-1)
+      -- d0 = initial time delay
+    else do
+      let (x0, d0) = head col1
+      let initial = Node x0
+      path <- dijkstra g initial
+      -- path is like
+      --   fromList [ (Node 2, (Node 1, Dist 5)), (Node 7, (Node 2, Dist 0))]
+      -- find the minimum distance for all nodes in column e, if reachable
+      let ds = reachableDests path initial nes
+      return $ if P.null ds
+        then -1
+        else d0 + minimum ds
 
 buildGraph :: Monad m => Ctx -> m Graph
 buildGraph ctx@Ctx{..} = do
@@ -111,18 +112,21 @@ buildGraph ctx@Ctx{..} = do
     -- go by columns and update arcs
     updateArcsC as j = foldl' updateArcC as $ diffs $ buildCol ctx j
 
-
--- path, starting node, final node
-calcDistance :: Path -> Node -> Node -> Maybe Int
-calcDistance path = calcD 0
+reachableDests :: Path -> Node -> [(Int, t)] -> [Int]
+reachableDests path initial = mapMaybe $ calcDistance path initial . fstNode
   where
-    calcD acc x0 x1 =
-      case M.lookup x1 path of
-        Nothing     -> Nothing
-        Just (x, Dist d) ->
-          if x == x0
-            then Just (acc + d)
-            else calcD (acc + d) x0 x
+    fstNode (x, _) = Node x
+
+-- path, initial node, final node
+calcDistance :: Path -> Node -> Node -> Maybe Int
+calcDistance path initial = calcD 0
+  where
+    calcD acc x1 =
+      if x1 == initial
+        then Just acc
+        else case M.lookup x1 path of
+          Nothing          -> Nothing
+          Just (x, Dist d) -> calcD (acc + d) x
 
 
 -- update arcs using horizontal cell pair
