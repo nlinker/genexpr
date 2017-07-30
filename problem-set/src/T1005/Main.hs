@@ -52,6 +52,11 @@ main = do
   len <- calc ctx
   print len
 
+-- calc ctx0 {e = 1}  => 2
+-- calc ctx0 {e = 2}  => 10
+-- calc ctx0 {e = 3}  => 20
+-- calc ctx0 {e = 4}  => 15
+-- calc ctx0 {e = 5}  => -1
 ctx0 = Ctx
   { n = 5
   , e = 3
