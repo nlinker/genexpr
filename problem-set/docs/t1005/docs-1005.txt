@@ -1,20 +1,11 @@
-main :: IO ()
-main = do
-  -- ctx <- parseCtx
-  let ctx = Ctx
-        { n = 5
-        , e = 3
-        , m = 4
-        , tt = M.fromList
-          [ ((1,1),5),((1,2),10)
-          , ((2,2),10),((2,4),15)
-          , ((3,2),35),((3,3),20),((3,4),17),((3,5),0)
-          , ((4,1),2),((4,3),40),((4,4),45)
-          ]
-        }
-  print $ runIdentity $ calc ctx
 
-module T1005.X where
+example input:
+5 3 4
+2 1 5 2 10
+2 2 10 4 15
+4 2 35 3 20 4 17 5 0
+3 1 2 3 40 4 45
+
 
 --buildGraph
 g =

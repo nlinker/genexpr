@@ -46,6 +46,12 @@ type Path = M.Map Node (Node, Dist)
 type Explored = S.Set Node
 type PrioQueue = PSQ Node Dist
 
+main :: IO ()
+main = do
+  ctx <- parseCtx
+  len <- calc ctx
+  print len
+
 ctx0 = Ctx
   { n = 5
   , e = 3
@@ -68,13 +74,6 @@ ctx1 = Ctx
    , ((2,2),17),((2,3),23)
    ]
   }
-
-main :: IO ()
-main = do
-  -- ctx <- parseCtx
-  let ctx = ctx0
-  len <- calc ctx
-  print len
 
 --undefined
 
