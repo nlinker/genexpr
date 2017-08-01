@@ -73,6 +73,7 @@ frame1 x y =
 hasTile :: Int -> [Piece] -> Bool
 hasTile t = tile
   where
+--    tile ts | trace ("tile " ++ show ts) False = undefined
     tile [] = True
     tile (S 0:ts) = tile ts
     tile (S s:C:ts)   | s == (t - 1) = tile ts
@@ -81,7 +82,6 @@ hasTile t = tile
     tile (S s:ts)     | s >= t       = tile $ S (s `mod` t) : ts
     tile _ = False
 
---    tile ts | trace ("tile " ++ show ts) False = undefined
 parseCtx :: IO Ctx
 parseCtx = do
   x <- readWord
