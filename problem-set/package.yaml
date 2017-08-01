@@ -16,3 +16,5 @@ dependencies:
   - array
   - containers
   - PSQueue
+  - template-haskell
+  - directory
