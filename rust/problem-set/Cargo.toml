@@ -1,0 +1,28 @@
+[package]
+name = "problem-set"
+version = "1.0.0"
+authors = ["Nick Linker <nlinker@gmail.com>"]
+description = ""
+license = "Apache License Version 2.0"
+repository = "https://github.com/nlinker/playground/rust"
+readme = "README.md"
+keywords = ["rust", "sample", "project"]
+
+[dependencies]
+# to fill
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.test]
+opt-level = 3
+debug = false
+
+[profile.release]
+opt-level = 3
+debug = false
+
+[profile.doc]
+opt-level = 0
+debug = true

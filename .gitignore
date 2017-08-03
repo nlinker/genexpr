@@ -1,7 +1,6 @@
-*/.stack-work/
-*/.ideaHaskellLib/
-*/out/
-
-*/cabal.config
-*.iml
-*.cabal
+**/.stack-work/
+**/.ideaHaskellLib/
+**/out/
+**/cabal.config
+**.iml
+**.cabal
