@@ -1,50 +1,61 @@
+//#[macro_use]
+//extern crate lazy_static;
+
 use std::io;
 use std::io::Read;
+use std::iter::FromIterator;
 
 #[derive(Debug)]
 struct Ctx {
-    n : i32, // total number of airports
-    k : i32, // starting airport 0..n-1
-    fs : Vec<(i32, i32)>, // cities connected by flights, undirected
+    // total number of airports
+    n: i32,
+    // starting airport 0..n-1
+    k: i32,
+    // cities connected by flights, undirected
+    fs: Vec<(i32, i32)>,
 }
 
 fn main() {
     let ctx = parse_input();
-    let res = 0;
-    println!("{}", res);
+    println!("{:?}", ctx);
 }
+
+//lazy_static! {
+//    static ref CTX0: Ctx = Ctx {
+//        n: 4,
+//        k: 3,
+//        fs: vec![(3, 2), (3, 1), (1, 4)],
+//    };
+//}
 
 // input is like
-// 4 3                                                       2
-// 3 2
-// 3 1
-// 1 4
+//4 3
+//3 2
+//3 1
+//1 4
 fn parse_input() -> Ctx {
     let mut input = String::new();
-    let mut idx = 0u32;
-    println!("read_to_string");
-    let result = io::stdin().read_to_string(&mut input);
-    println!("imput = {:?}", input);
-    let n = parse_i32(&input, &mut idx);
-    unimplemented!()
+    io::stdin()
+        .read_to_string(&mut input)
+        .expect("correct input");
+    let parts = Vec::from_iter(input.split_whitespace());
+    // now let's read the Ctx
+    let mut idx: i32 = 0;
+    let n = parse_i32(&parts, &mut idx);
+    let k = parse_i32(&parts, &mut idx);
+    let mut fs: Vec<(i32, i32)> = Vec::new();
+    for _i in 1..n {
+        let a = parse_i32(&parts, &mut idx);
+        let b = parse_i32(&parts, &mut idx);
+        fs.push((a, b));
+    }
+    Ctx { n, k, fs }
 }
 
-fn parse_i32(input: &str, idx: &mut u32) -> i32 {
-    // iterate symbols in str until
-    for s in input.split_whitespace() {
-        println!("s = {}", s)
-    }
-    0
-//    let mut input = String::new();
-//
-//    io::stdin()
-//        .read_line(&mut input)
-//        .expect("correct input");
-//    let res = input
-//        .trim()
-//        .split(' ')
-//        .map(|a| a.parse::<i32>())
-//        .map(|a| a.expect("parsed integer"))
-//        .fold(0i32, |sum, a| sum + a);
-//
+fn parse_i32(parts: &Vec<&str>, idx: &mut i32) -> i32 {
+    let r = parts[*idx as usize]
+        .parse::<i32>()
+        .expect("parsed integer");
+    *idx += 1;
+    r
 }

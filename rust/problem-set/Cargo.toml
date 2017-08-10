@@ -9,7 +9,7 @@ readme = "README.md"
 keywords = ["rust", "sample", "project"]
 
 [dependencies]
-# to fill
+lazy_static = "0.2.8"
 
 [profile.dev]
 opt-level = 0
