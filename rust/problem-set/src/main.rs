@@ -1,6 +1,8 @@
 //#[macro_use]
 //extern crate lazy_static;
 
+pub mod binary_tree;
+
 use std::io;
 use std::io::Read;
 use std::iter::FromIterator;
@@ -16,17 +18,20 @@ struct Ctx {
 }
 
 fn main() {
+    binary_tree::main();
     let ctx = parse_input();
-    println!("{:?}", ctx);
+    let r = match calc(ctx) {
+        Some(x) => x,
+        None => 0,
+    };
+    println!("{}", r);
 }
 
-//lazy_static! {
-//    static ref CTX0: Ctx = Ctx {
-//        n: 4,
-//        k: 3,
-//        fs: vec![(3, 2), (3, 1), (1, 4)],
-//    };
-//}
+#[allow(unused_variables)]
+fn calc(ctx: Ctx) -> Option<i32> {
+    // build the game tree
+    None
+}
 
 // input is like
 //4 3
@@ -59,3 +64,11 @@ fn parse_i32(parts: &Vec<&str>, idx: &mut i32) -> i32 {
     *idx += 1;
     r
 }
+
+//lazy_static! {
+//    static ref CTX0: Ctx = Ctx {
+//        n: 4,
+//        k: 3,
+//        fs: vec![(3, 2), (3, 1), (1, 4)],
+//    };
+//}
