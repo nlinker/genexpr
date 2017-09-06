@@ -37,15 +37,15 @@ struct Node {
 fn main() {
     // binary_tree::main();
     let ctx = parse_input();
-    let r = match calc(ctx) {
-        Some(x) => x,
-        None => 0,
+    match calc(ctx) {
+        Some(x) => println!("First player wins flying to airport {}", x),
+        None => println!("First player loses"),
     };
-    println!("{}", r);
 }
 
 #[allow(unused_variables)]
 fn calc(ctx: Ctx) -> Option<i32> {
+    println!("ctx = {:?}", ctx);
     // build the game tree
     let m = ctx.edges.len();
     let mut tree: Vec<Node> = Vec::with_capacity(2*m);
@@ -64,21 +64,69 @@ fn calc(ctx: Ctx) -> Option<i32> {
         on.push(true);
     }
     build_tree(&mut tree, &mut on, &ctx.edges, 0);
-    println!("tree = {:?}", tree);
-    None
+    let score = calc_score(&mut tree, 0);
+    let start_node = if score > 0 {
+        // first player wins, find the airport with the minimal number
+        let idx = tree[0].c_idx;
+        let len = tree[0].c_len;
+        let mut start_node = ctx.n;
+        for i in 0..len {
+            let node = tree[i + idx].clone();
+            println!("node = {:?}", node);
+            if node.score > 0 {
+                start_node = min(start_node, node.node);
+            }
+        }
+        Some(start_node)
+    } else {
+        None
+    };
+    println!("start node = {:?}", start_node);
+    start_node
+}
+
+fn calc_score(
+    tree: &mut Vec<Node>,
+    ni: usize,
+) -> i32 {
+    let node = tree[ni].clone();
+    if node.c_len == 0 {
+        // if terminal node is black, it loses, so score is 1
+        // otherwise it wins, therefore the score is -1
+        let score = match node.player {
+            Player::Black => 1,
+            Player::White => -1,
+        };
+        tree[ni].score = score;
+        score
+    } else {
+        let mut s_min = 99990;
+        let mut s_max = -99999;
+        for i in 0..node.c_len {
+            let score = calc_score(tree, i + node.c_idx);
+            s_min = min(s_min, score);
+            s_max = max(s_max, score);
+        }
+        let score = match node.player {
+            Player::Black => s_min,
+            Player::White => s_max,
+        };
+        tree[ni].score = score;
+        score
+    }
 }
 
 fn build_tree(
     tree: &mut Vec<Node>,
     on: &mut Vec<bool>,
     edges: &Vec<(i32,i32)>,
-    ni: usize
+    ni: usize,
 ) {
     let mut adj: Vec<i32> = Vec::with_capacity(10);
     // current node
-    let tree_node = tree[ni].clone();
-    let from = tree_node.node;
-    let player = tree_node.player;
+    let node = tree[ni].clone();
+    let from = node.node;
+    let player = node.player;
     // index from where the children start
     let idx = tree.len();
     for j in 0..edges.len() {
@@ -117,6 +165,14 @@ fn invert(player: &Player) -> Player {
     }
 }
 
+fn min(x: i32, y: i32) -> i32 {
+    if x < y {x} else {y}
+}
+
+fn max(x: i32, y: i32) -> i32 {
+    if x > y {x} else {y}
+}
+
 // input is like
 //4 3
 //3 2
@@ -149,18 +205,17 @@ fn parse_i32(parts: &Vec<&str>, idx: &mut i32) -> i32 {
     r
 }
 
-fn parse_u32(parts: &Vec<&str>, idx: &mut i32) -> u32 {
-    let r = parts[*idx as usize]
-        .parse::<u32>()
-        .expect("parsed integer");
-    *idx += 1;
-    r
-}
-
 //lazy_static! {
 //    static ref CTX0: Ctx = Ctx {
 //        n: 4,
 //        k: 3,
 //        edges: vec![(3, 2), (3, 1), (1, 4)],
+//    };
+//}
+//lazy_static! {
+//    static ref CTX0: Ctx = Ctx {
+//        n: 5,
+//        k: 1,
+//        edges: vec![(1, 2), (2, 3), (3, 4), (4, 5), (5, 1), (2, 5), (2, 4)],
 //    };
 //}
