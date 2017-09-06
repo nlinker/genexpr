@@ -1,8 +1,6 @@
 //#[macro_use]
 //extern crate lazy_static;
 
-pub mod binary_tree;
-
 use std::io;
 use std::io::Read;
 use std::iter::FromIterator;
@@ -45,7 +43,7 @@ fn main() {
 
 #[allow(unused_variables)]
 fn calc(ctx: Ctx) -> Option<i32> {
-    println!("ctx = {:?}", ctx);
+    // println!("ctx = {:?}", ctx);
     // build the game tree
     let m = ctx.edges.len();
     let mut tree: Vec<Node> = Vec::with_capacity(2*m);
@@ -72,7 +70,6 @@ fn calc(ctx: Ctx) -> Option<i32> {
         let mut start_node = ctx.n;
         for i in 0..len {
             let node = tree[i + idx].clone();
-            println!("node = {:?}", node);
             if node.score > 0 {
                 start_node = min(start_node, node.node);
             }
@@ -81,7 +78,6 @@ fn calc(ctx: Ctx) -> Option<i32> {
     } else {
         None
     };
-    println!("start node = {:?}", start_node);
     start_node
 }
 
@@ -194,7 +190,7 @@ fn parse_input() -> Ctx {
         let b = parse_i32(&parts, &mut idx);
         edges.push((a, b));
     }
-    Ctx { n, k, edges }
+    Ctx { n: n, k: k, edges: edges }
 }
 
 fn parse_i32(parts: &Vec<&str>, idx: &mut i32) -> i32 {
