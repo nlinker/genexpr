@@ -1,3 +1,5 @@
 :set -fno-warn-type-defaults
+:set prompt "\ESC[0;34mλ> \ESC[m"
+:set prompt2 "\ESC[0;34mα> \ESC[m"
 
 import Control.Monad.Random

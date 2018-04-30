@@ -1,6 +1,8 @@
--- This file has been generated from package.yaml by hpack version 0.14.0.
+-- This file has been generated from package.yaml by hpack version 0.20.0.
 --
 -- see: https://github.com/sol/hpack
+--
+-- hash: 0aa7d6decd26a2c6a2bac6b3d645bdb40384920418369d85e873983a94f3e983
 
 name:           expr-gen
 version:        0.1.0.0
@@ -18,10 +20,11 @@ executable expr-gen
   main-is: Main.hs
   hs-source-dirs:
       src
-    , exe
+      exe
   ghc-options: -Wall -fno-warn-name-shadowing -fwarn-incomplete-record-updates -fwarn-incomplete-uni-patterns
   build-depends:
-      base ==4.*
+      MonadRandom
+    , base ==4.*
     , combinat
     , exceptions
     , getopt-generics
@@ -31,7 +34,6 @@ executable expr-gen
     , logict
     , mtl
     , spoon
-    , MonadRandom
   other-modules:
       Check
       Expr
@@ -39,6 +41,7 @@ executable expr-gen
       Opt
       Print
       Run
+      Paths_expr_gen
   default-language: Haskell2010
 
 test-suite spec
@@ -46,22 +49,22 @@ test-suite spec
   main-is: Main.hs
   hs-source-dirs:
       src
-    , test
+      test
   ghc-options: -Wall -fno-warn-name-shadowing -fwarn-incomplete-record-updates -fwarn-incomplete-uni-patterns
   build-depends:
-      base ==4.*
+      MonadRandom
+    , QuickCheck
+    , base ==4.*
     , combinat
     , exceptions
     , getopt-generics
     , ghc
     , ghc-paths
     , gitrev
+    , hspec
     , logict
     , mtl
     , spoon
-    , MonadRandom
-    , hspec
-    , QuickCheck
   other-modules:
       Check
       Expr
@@ -71,4 +74,5 @@ test-suite spec
       Run
       MainSpec
       Spec
+      Paths_expr_gen
   default-language: Haskell2010

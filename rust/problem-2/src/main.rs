@@ -16,8 +16,12 @@ fn main() {
     println!("The last one is {}", s);
 }
 
+//fn count(xs: &HashMap<i32, bool>) -> i32 {
+//    xs.iter().map(|(_k, v)| if *v {1} else {0}).sum()
+//}
+
 fn count(xs: &HashMap<i32, bool>) -> i32 {
-    xs.iter().map(|(_k, v)| if *v {1} else {0}).sum()
+    xs.values().filter(|v| **v).count() as i32
 }
 
 fn next(xs: &mut HashMap<i32, bool>, start: i32) -> i32 {
