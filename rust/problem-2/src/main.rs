@@ -22,7 +22,6 @@ fn main() {
 
 fn count(xs: &HashMap<i32, bool>) -> i32 {
     xs.values().filter(|v| **v).count() as i32
-}
 
 fn next(xs: &mut HashMap<i32, bool>, start: i32) -> i32 {
     // start in 1..n, and xs.get(start) == true
