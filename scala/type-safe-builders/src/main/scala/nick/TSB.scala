@@ -25,7 +25,7 @@ object TSB extends App {
     xb
   }
 
-  println(result(Array("hey", "hello", "there")).document)
+  println(result(Array("hey", "hello", "there")).current)
 }
 
 object Dsl {
@@ -82,8 +82,15 @@ object Boilerplate {
 
   case class StandardNode(tagName: String) extends TheNode {
     def apply(attrs: (Symbol, Any)*)(expr: ⇒ Any)(implicit builder: XmlBuilder): Unit = {
-      builder.withElement(new xml.Elem(null, tagName, attrsConv(attrs), xml.TopScope, false), node ⇒ {
-        builder.appendChild(node)
+      builder.withElement(new xml.Elem(null, tagName, attrsConv(attrs), xml.TopScope, false), elem ⇒ {
+        if (!builder.isDefined)
+          builder.appendChild(elem)
+
+        expr match {
+          case _: Unit => ()
+          case n: xml.Node => builder.appendChild(n)
+          case a: Any => builder.appendChild(new xml.Text(a.toString))
+        }
       })
     }
 
@@ -131,25 +138,27 @@ object Boilerplate {
 
 }
 
+trait MyNode
+case class MyDoc(doc: xml.Document) extends MyNode
+case class MyElem(elem: xml.Elem) extends MyNode
+
 class XmlBuilder {
 
   val document = new xml.Document()
   var current = Option.empty[xml.Elem]
 
-  trait MyNode
-  case class MyDoc(doc: xml.Document) extends MyNode
-  case class MyElem(elem: xml.Elem) extends MyNode
+  def isDefined = current.isDefined
 
   def appendChild(n: xml.Node): MyNode = {
     current match {
-      case None ⇒
-        document.docElem = n
-        current = Some(n.asInstanceOf[xml.Elem])
-        MyDoc(document)
       case Some(elem) ⇒
         val e = elem.copy(child = elem.child ++ n)
         current = Some(e)
         MyElem(e)
+      case None ⇒
+        document.docElem = n
+        current = Some(n.asInstanceOf[xml.Elem])
+        MyDoc(document)
     }
   }
 
