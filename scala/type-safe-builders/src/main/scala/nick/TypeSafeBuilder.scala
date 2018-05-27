@@ -3,7 +3,7 @@ package nick
 object TypeSafeBuilder extends App {
 
   def result(args: Array[String]): AstBuilder = {
-    implicit val xb = new AstBuilder()
+    implicit val builder = new AstBuilder()
     import Dsl._
 
     html {
@@ -21,7 +21,7 @@ object TypeSafeBuilder extends App {
         args.foreach(arg ⇒ a(href → s"http://$arg.org") { +arg })
       }
     }
-    xb
+    builder
   }
 
   println(result(Array("hey", "hello", "there")))
