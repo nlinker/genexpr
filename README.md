@@ -11,3 +11,4 @@ enable good testability.
 - `free-transactions`:
 
 The project contains POC code that shows how to do transactions with free monads.
+
