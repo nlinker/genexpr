@@ -152,77 +152,72 @@ fn get_identifier<I: Iterator<Item = char>>(it: &mut Peekable<I>, c: char) -> St
 fn rpn(input: &[Token], debug: bool) -> Vec<&Token> {
     let mut stack: Vec<&Token> = Vec::new(); // holds operators and left brackets
     let mut output: Vec<&Token> = Vec::with_capacity(input.len());
-    println!("{:30}{:30}{:10}", "output", "stack", "token");
+    if debug {
+        println!("{:10}  {:30}{:30}", "token", "output", "stack");
+    }
     for token in input {
-        let str_stack = stack.iter().map(|t| format!(" {}", t)).collect::<String>();
-        let str_output = output.iter().map(|t| format!(" {}", t)).collect::<String>();
-        println!("{:30}{:30}{:10}", str_output, str_stack, token);
+        if debug {
+            let str_stack = stack.iter().map(|t| format!(" {}", t)).collect::<String>();
+            let str_output = output.iter().map(|t| format!(" {}", t)).collect::<String>();
+            println!("{:10}  {:30}{:30}", token, str_output, str_stack);
+        }
         match token {
             Token::Number(_) => output.push(token),
             Token::RealVar(_) => output.push(token),
             Token::BoolVar(_) => output.push(token),
             Token::LeftBracket => stack.push(token),
+            Token::Function(_) => stack.push(token),
             Token::Operator(op) => {
-                loop {
-                    if let Some(&t) = stack.last() {
-                        if !t.is_left_paren() {
-                            // the top of the stack is not a left parenthesis AND
-                            let cond = match t {
-                                // the top of the stack is a function
-                                Token::Function(_) => true,
-                                // the top of the stack has greater precedence than op
-                                Token::Operator(top) if top.prec > op.prec => true,
-                                // the top of the stack has equal precedence to op and is left associative
-                                Token::Operator(top) if top.prec == op.prec && top.assoc == Assoc::Left => true,
-                                // otherwise
-                                _ => false
-                            };
-                            if cond {
-                                // pop operators from the operator stack onto the output queue
-                                // we know for sure the stack.pop() doesn't fail here
-                                output.push(stack.pop().unwrap());
-                            } else {
-                                break; // the conditions are not satisfied
-                            }
-                        } else {
-                            break; // if left parenthesis
-                        }
+                while let Some(&top) = stack.last() {
+                    let cond = match top {
+                        // the top of the stack is not a left parenthesis AND
+                        Token::LeftBracket => break,
+                        // the top of the stack is a function
+                        Token::Function(_) => true,
+                        // the top of the stack has greater precedence than op
+                        Token::Operator(top) if top.prec > op.prec => true,
+                        // the top of the stack has equal precedence to op and is left associative
+                        Token::Operator(top) if top.prec == op.prec && top.assoc == Assoc::Left => true,
+                        // otherwise
+                        _ => false,
+                    };
+                    if cond {
+                        // pop operators from the operator stack onto the output queue
+                        // we know for sure the stack.pop() doesn't fail here
+                        output.push(stack.pop().unwrap());
                     } else {
-                        break; // if stack is empty
+                        break;
                     }
                 }
                 stack.push(token)
             },
             Token::RightBracket => {
-                loop {
+                while let Some(ref top) = stack.pop() {
                     // while the operator at the top of the operator stack is not a left paren
-                    if let Some(&t) = stack.last() {
-                        if !t.is_left_paren() {
-                            // we know for sure the top exists and is not a LeftBracket
-                            output.push(stack.pop().unwrap());
-                        } else {
-                            break;
-                        }
+                    if !top.is_left_paren() {
+                        // we know for sure the top exists and is not a LeftBracket
+                        output.push(&top);
                     } else {
                         break;
                     }
                 }
-            }
-            Token::Function(_) => stack.push(token),
+            },
         };
     }
     // after the loop, if operator stack not empty, pop everything to output queue
-    if !stack.is_empty() {
-        while let Some(t) = stack.pop() {
-            output.push(t);
+    while let Some(t) = stack.pop() {
+        if t.is_left_paren() {
+
         }
+        output.push(t);
     }
     output
 }
 
 fn main() {
 //    let input = "- 1 * - [2 + 3] + 4 * [- 5 * 6] + 7 * - 8";
-    let input = "3 + 4 * 2 / ( 1 - 5 ) ^ 6 ^ 7";
+//    let input = "3 + 4 * 2 / ( 1 - 5 ) ^ 6 ^ 7";
+    let input = "3 + 4 * 2 / ( 1 - 5 ) ^ 2 ^ 3";
     let tokens = lex(input).unwrap();
     let rpn = rpn(&tokens[..], true);
     let output = (&rpn).into_iter().map(|t| format!(" {}", t)).collect::<String>();
