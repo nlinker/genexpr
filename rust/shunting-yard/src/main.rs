@@ -113,7 +113,7 @@ impl Display for Token {
 fn lex(input: &str) -> Result<Vec<Token>, char> {
     let mut result: Vec<Token> = Vec::with_capacity(input.len());
     let mut it = input.chars().peekable();
-    // set to true if some operand have seen
+    // set to true if some operand has been seen
     let mut is_binary = false;
 
     while let Some(c) = it.next() {
