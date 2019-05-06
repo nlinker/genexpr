@@ -3,7 +3,7 @@ use std::fmt::{Display, Formatter, Error};
 use std::iter::Peekable;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
-enum Ary {
+enum Arity {
     Unary,
     Binary,
 }
@@ -23,7 +23,7 @@ enum Brace {
 #[derive(Copy, Clone, PartialEq, Debug)]
 struct Op {
     symbol: char,
-    ary: Ary,
+    ary: Arity,
     assoc: Assoc,
     prec: u8,
 }
@@ -43,7 +43,7 @@ impl Token {
     fn binary_left_assoc(c: char, prec: u8) -> Token {
         Token::Operator(
             Op {
-                ary: Ary::Binary,
+                ary: Arity::Binary,
                 symbol: c,
                 assoc: Assoc::Left,
                 prec,
@@ -52,7 +52,7 @@ impl Token {
     fn unary_right_assoc(c: char, prec: u8) -> Token {
         Token::Operator(
             Op {
-                ary: Ary::Unary,
+                ary: Arity::Unary,
                 symbol: c,
                 assoc: Assoc::Right,
                 prec,
@@ -80,7 +80,7 @@ impl Display for Token {
             Token::Number(n) => write!(f, "{}", n),
             Token::RealVar(id) => write!(f, "{}", id),
             Token::BoolVar(id) => write!(f, "{}", id),
-            Token::Operator(op) => if op.ary == Ary::Unary {
+            Token::Operator(op) => if op.ary == Arity::Unary {
                 // unary `-` and `+` we display as `m` and `p`
                 let x = match op.symbol {
                     '-' => 'm',
@@ -258,7 +258,7 @@ mod tests {
     use super::Op;
     use super::Token::*;
     use crate::{lex, rpn, Token};
-    use crate::Ary::*;
+    use crate::Arity::*;
     use crate::Assoc::*;
 
     #[test]

@@ -7,7 +7,7 @@ The expressions contain
   
   - numbers in any format
   - identifiers for variables of real and boolean type 
-  (variables of real type begin with R, variables of boolean type begin with B)
+  (variables of real type start with `R`, variables of boolean type start with `B`)
   - square brackets `[` and `]`
   - operators, precedence with associativity and sorted by precedence decreasing
     1. prec 9, assoc `<--`, function calls `exp(...)` and `ln(...)` 
