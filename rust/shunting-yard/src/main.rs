@@ -15,6 +15,12 @@ enum Assoc {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
+enum Brace {
+    Round,
+    Square
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
 struct Op {
     symbol: char,
     ary: Ary,
@@ -28,8 +34,8 @@ enum Token {
     RealVar(String),
     BoolVar(String),
     Operator(Op),
-    LeftBracket,
-    RightBracket,
+    LeftParen(Brace),
+    RightParen(Brace),
     Function(String),
 }
 
@@ -62,7 +68,7 @@ impl Token {
 
     fn is_left_paren(&self) -> bool {
         match self {
-            Token::LeftBracket => true,
+            Token::LeftParen(_) => true,
             _ => false
         }
     }
@@ -85,8 +91,20 @@ impl Display for Token {
             } else {
                 write!(f, "{}", op.symbol)
             },
-            Token::LeftBracket => write!(f, "["),
-            Token::RightBracket => write!(f, "]"),
+            Token::LeftParen(b) => {
+                let c = match b {
+                    Brace::Square => '[',
+                    Brace::Round => '(',
+                };
+                write!(f, "{}", c)
+            },
+            Token::RightParen(b) => {
+                let c = match b {
+                    Brace::Square => ']',
+                    Brace::Round => ')',
+                };
+                write!(f, "{}", c)
+            },
             Token::Function(name) => write!(f, "{}", name),
         }
     }
@@ -96,14 +114,14 @@ fn lex(input: &str) -> Result<Vec<Token>, char> {
     let mut result: Vec<Token> = Vec::with_capacity(input.len());
     let mut it = input.chars().peekable();
     // set to true if some operand have seen
-    let mut binary = false;
+    let mut is_binary = false;
 
     while let Some(c) = it.next() {
         // if the current char is whitespace, just skip
         if !c.is_whitespace() {
             let t = match c {
                 '0'..='9' => Token::Number(get_number(&mut it, c)),
-                '+' | '-' => if binary { Token::binary_left_assoc(c, 5) } else { Token::unary_right_assoc(c, 8) },
+                '+' | '-' => if is_binary { Token::binary_left_assoc(c, 5) } else { Token::unary_right_assoc(c, 8) },
                 '*' | '/' => Token::binary_left_assoc(c, 7),
                 '^'       => Token::binary_left_assoc(c, 6),
                 '<' | '>' => Token::binary_left_assoc(c, 4),
@@ -113,16 +131,17 @@ fn lex(input: &str) -> Result<Vec<Token>, char> {
                 '!'       => Token::binary_left_assoc(c, 2),
                 'R'       => Token::RealVar(get_identifier(&mut it, c)),
                 'B'       => Token::BoolVar(get_identifier(&mut it, c)),
-                '[' | '(' => Token::LeftBracket,
-                ']' | ')' => Token::RightBracket,
+                '[' | '(' => Token::LeftParen(if c == '[' { Brace::Square } else { Brace::Round }),
+                ']' | ')' => Token::RightParen(if c == ']' { Brace::Square } else { Brace::Round }),
                 _ => return Err(c),
             };
             // if we have seen an operand, then we expect the binary operator
-            binary = match c {
+            is_binary = match c {
                 '0'..='9' => true,
                 'R' => true,
                 'B' => true,
                 ']' => true,
+                ')' => true,
                 _ => false,
             };
             result.push(t);
@@ -149,29 +168,24 @@ fn get_identifier<I: Iterator<Item = char>>(it: &mut Peekable<I>, c: char) -> St
     id
 }
 
-fn rpn(input: &[Token], debug: bool) -> Vec<&Token> {
+fn rpn(input: &[Token], debug: bool) -> Result<Vec<&Token>, char> {
     let mut stack: Vec<&Token> = Vec::new(); // holds operators and left brackets
     let mut output: Vec<&Token> = Vec::with_capacity(input.len());
     if debug {
         println!("{:10}  {:30}{:30}", "token", "output", "stack");
     }
     for token in input {
-        if debug {
-            let str_stack = stack.iter().map(|t| format!(" {}", t)).collect::<String>();
-            let str_output = output.iter().map(|t| format!(" {}", t)).collect::<String>();
-            println!("{:10}  {:30}{:30}", token, str_output, str_stack);
-        }
         match token {
             Token::Number(_) => output.push(token),
             Token::RealVar(_) => output.push(token),
             Token::BoolVar(_) => output.push(token),
-            Token::LeftBracket => stack.push(token),
+            Token::LeftParen(_) => stack.push(token),
             Token::Function(_) => stack.push(token),
             Token::Operator(op) => {
                 while let Some(&top) = stack.last() {
                     let cond = match top {
                         // the top of the stack is not a left parenthesis AND
-                        Token::LeftBracket => break,
+                        Token::LeftParen(_) => break,
                         // the top of the stack is a function
                         Token::Function(_) => true,
                         // the top of the stack has greater precedence than op
@@ -186,23 +200,36 @@ fn rpn(input: &[Token], debug: bool) -> Vec<&Token> {
                         // we know for sure the stack.pop() doesn't fail here
                         output.push(stack.pop().unwrap());
                     } else {
+                        // this operation should remain in the stack, put it back
                         break;
                     }
                 }
-                stack.push(token)
+                stack.push(token);
             },
-            Token::RightBracket => {
-                while let Some(ref top) = stack.pop() {
-                    // while the operator at the top of the operator stack is not a left paren
-                    if !top.is_left_paren() {
-                        // we know for sure the top exists and is not a LeftBracket
-                        output.push(&top);
-                    } else {
-                        break;
+            Token::RightParen(cur) => {
+                while let Some(ref top) = stack.last() {
+                    match top {
+                        Token::LeftParen(top) => {
+                            if *cur != *top {
+                                return Err(if *cur == Brace::Square { ']' } else { ')' })
+                            }
+                            // consume the left paren and break
+                            stack.pop();
+                            break;
+                        },
+                        _ => {
+                            // we know for sure the top exists and is not a LeftBracket
+                            output.push(stack.pop().unwrap());
+                        },
                     }
                 }
             },
         };
+        if debug {
+            let str_stack = stack.iter().map(|t| format!(" {}", t)).collect::<String>();
+            let str_output = output.iter().map(|t| format!(" {}", t)).collect::<String>();
+            println!("{:10}  {:30}{:30}", token, str_output, str_stack);
+        }
     }
     // after the loop, if operator stack not empty, pop everything to output queue
     while let Some(t) = stack.pop() {
@@ -211,7 +238,7 @@ fn rpn(input: &[Token], debug: bool) -> Vec<&Token> {
         }
         output.push(t);
     }
-    output
+    Ok(output)
 }
 
 fn main() {
@@ -219,7 +246,7 @@ fn main() {
 //    let input = "3 + 4 * 2 / ( 1 - 5 ) ^ 6 ^ 7";
     let input = "3 + 4 * 2 / ( 1 - 5 ) ^ 2 ^ 3";
     let tokens = lex(input).unwrap();
-    let rpn = rpn(&tokens[..], true);
+    let rpn = rpn(&tokens[..], true).unwrap();
     let output = (&rpn).into_iter().map(|t| format!(" {}", t)).collect::<String>();
     println!("--------------------------");
     println!("input: {}", input);
