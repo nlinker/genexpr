@@ -1,6 +1,7 @@
 
 use std::fmt::{Display, Formatter, Error};
 use std::iter::Peekable;
+use std::alloc::handle_alloc_error;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum Arity {
@@ -133,6 +134,10 @@ fn lex(input: &str) -> Result<Vec<Token>, char> {
                 'B'       => Token::BoolVar(get_identifier(&mut it, c)),
                 '[' | '(' => Token::LeftParen(if c == '[' { Brace::Square } else { Brace::Round }),
                 ']' | ')' => Token::RightParen(if c == ']' { Brace::Square } else { Brace::Round }),
+                'a'..='z'  => match get_function(&mut it, c) {
+                    Ok(fun) => Token::Function(fun),
+                    Err(c) => return Err(c),
+                },
                 _ => return Err(c),
             };
             // if we have seen an operand, then we expect the binary operator
@@ -168,6 +173,15 @@ fn get_identifier<I: Iterator<Item = char>>(it: &mut Peekable<I>, c: char) -> St
     id
 }
 
+fn get_function<I: Iterator<Item = char>>(mut it: &mut Peekable<I>, c: char) -> Result<String, char> {
+    let fun = get_identifier(&mut it, c);
+    if fun == "exp" || fun == "ln" {
+        Ok(fun)
+    } else {
+        Err(c)
+    }
+}
+
 fn rpn(input: &[Token], debug: bool) -> Result<Vec<&Token>, char> {
     let mut stack: Vec<&Token> = Vec::new(); // holds operators and left brackets
     let mut output: Vec<&Token> = Vec::with_capacity(input.len());
@@ -180,7 +194,7 @@ fn rpn(input: &[Token], debug: bool) -> Result<Vec<&Token>, char> {
             Token::RealVar(_) => output.push(token),
             Token::BoolVar(_) => output.push(token),
             Token::LeftParen(_) => stack.push(token),
-            Token::Function(_) => stack.push(token),
+            Token::Function(fun) => stack.push(token),
             Token::Operator(op) => {
                 while let Some(&top) = stack.last() {
                     let cond = match top {
@@ -207,6 +221,10 @@ fn rpn(input: &[Token], debug: bool) -> Result<Vec<&Token>, char> {
                 stack.push(token);
             },
             Token::RightParen(cur) => {
+                if stack.is_empty() {
+                    // braces are not balanced
+                    return Err(if *cur == Brace::Square { ']' } else { ')' });
+                }
                 while let Some(ref top) = stack.last() {
                     match top {
                         Token::LeftParen(top) => {
@@ -232,19 +250,21 @@ fn rpn(input: &[Token], debug: bool) -> Result<Vec<&Token>, char> {
         }
     }
     // after the loop, if operator stack not empty, pop everything to output queue
-    while let Some(t) = stack.pop() {
+    while let Some(t) = stack.last() {
         if t.is_left_paren() {
-
+            break;
         }
-        output.push(t);
+        output.push(stack.pop().unwrap());
     }
-    Ok(output)
+    // if stack still is not empty, then braces are not balanced
+    if stack.is_empty() { Ok(output) } else { Err(')') }
 }
 
 fn main() {
 //    let input = "- 1 * - [2 + 3] + 4 * [- 5 * 6] + 7 * - 8";
-//    let input = "3 + 4 * 2 / ( 1 - 5 ) ^ 6 ^ 7";
-    let input = "3 + 4 * 2 / ( 1 - 5 ) ^ 2 ^ 3";
+//    let input = "3 + 4 * 2 / ( 1 - 5 ) ^ 2 ^ 3";
+    let input = "ln ( exp ( 1 ) / 2 * ( 3 + 4 ) )";
+    let input = "ln exp ( 1 ) / 2 * ( 3 + 4 ) ";
     let tokens = lex(input).unwrap();
     let rpn = rpn(&tokens[..], true).unwrap();
     let output = (&rpn).into_iter().map(|t| format!(" {}", t)).collect::<String>();
