@@ -1,7 +1,6 @@
 
 use std::fmt::{Display, Formatter, Error};
 use std::iter::Peekable;
-use std::alloc::handle_alloc_error;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum Arity {
@@ -31,7 +30,7 @@ struct Op {
 
 #[derive(Clone, PartialEq, Debug)]
 enum Token {
-    Number(i32),
+    Number(f32),
     RealVar(String),
     BoolVar(String),
     Operator(Op),
@@ -155,10 +154,20 @@ fn lex(input: &str) -> Result<Vec<Token>, char> {
     Ok(result)
 }
 
-fn get_number<I: Iterator<Item = char>>(it: &mut Peekable<I>, c: char) -> i32 {
-    let mut n = c.to_digit(10).expect("gen_number invariant violation") as i32;
+fn get_number<I: Iterator<Item = char>>(it: &mut Peekable<I>, c: char) -> f32 {
+    let mut n = c.to_digit(10).expect("gen_number invariant violation") as f32;
     while let Some(Some(k)) = it.peek().map(|c| c.to_digit(10)) {
-        n = n * 10 + (k as i32);
+        n = n * 10.0 + (k as f32);
+        it.next();
+    }
+    // maybe there is a fractional part of the number
+    if it.peek() == Some(&'.') {
+        it.next();
+    }
+    let mut d = 1.0;
+    while let Some(Some(k)) = it.peek().map(|c| c.to_digit(10)) {
+        d = d * 10.0;
+        n = n + (k as f32) / d;
         it.next();
     }
     n
@@ -264,7 +273,7 @@ fn main() {
 //    let input = "- 1 * - [2 + 3] + 4 * [- 5 * 6] + 7 * - 8";
 //    let input = "3 + 4 * 2 / ( 1 - 5 ) ^ 2 ^ 3";
     let input = "ln ( exp ( 1 ) / 2 * ( 3 + 4 ) )";
-    let input = "ln exp ( 1 ) / 2 * ( 3 + 4 ) ";
+    let input = "ln exp ( 1.234 ) / 2 * ( 3 + 4 ) ";
     let tokens = lex(input).unwrap();
     let rpn = rpn(&tokens[..], true).unwrap();
     let output = (&rpn).into_iter().map(|t| format!(" {}", t)).collect::<String>();
@@ -287,7 +296,7 @@ mod tests {
             Operator(Op { symbol: '-', ary: Unary, assoc: Right, prec: 8 }),
             Operator(Op { symbol: '+', ary: Unary, assoc: Right, prec: 8 }),
             Operator(Op { symbol: '-', ary: Unary, assoc: Right, prec: 8 }),
-            Number(1),
+            Number(1.0),
             Operator(Op { symbol: '*', ary: Binary, assoc: Left, prec: 7 }),
             Operator(Op { symbol: '-', ary: Unary, assoc: Right, prec: 8 }),
             Operator(Op { symbol: '+', ary: Unary, assoc: Right, prec: 8 }),
@@ -299,14 +308,14 @@ mod tests {
 
     #[test]
     fn long_unary_chains() {
-        let input = "+ - - 1 * + - - 2";
+        let input = "+ - - 1.234 * + - - 2.345";
         let tokens = lex(input).unwrap();
         let expected = vec![
-            Number(1),
+            Number(1.234),
             Operator(Op { symbol: '-', ary: Unary, assoc: Right, prec: 8 }),
             Operator(Op { symbol: '-', ary: Unary, assoc: Right, prec: 8 }),
             Operator(Op { symbol: '+', ary: Unary, assoc: Right, prec: 8 }),
-            Number(2),
+            Number(2.345),
             Operator(Op { symbol: '-', ary: Unary, assoc: Right, prec: 8 }),
             Operator(Op { symbol: '-', ary: Unary, assoc: Right, prec: 8 }),
             Operator(Op { symbol: '+', ary: Unary, assoc: Right, prec: 8 }),
