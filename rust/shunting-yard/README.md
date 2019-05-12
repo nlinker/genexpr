@@ -20,4 +20,10 @@ The expressions contain
     1. prec 2, assoc `-->`, binary boolean and `&`
     1. prec 1, assoc `-->`, binary boolean or `!`
     
+    
+### Useful links
+
+- [Shunting-Yard algorithm in Wiki](https://en.wikipedia.org/wiki/Shunting-yard_algorithm)
+- [Writing a Simple Parser in Rust](https://adriann.github.io/rust_parser.html)
+
    

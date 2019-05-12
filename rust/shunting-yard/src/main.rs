@@ -1,6 +1,7 @@
 
-use std::fmt::{Display, Formatter, Error};
+use std::fmt::{Display, Formatter};
 use std::iter::Peekable;
+use std::collections::HashMap;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum Arity {
@@ -39,6 +40,19 @@ enum Token {
     Function(String),
 }
 
+#[derive(Copy, Clone, PartialEq, Debug)]
+enum Value {
+    Real(f32),
+    Bool(bool)
+}
+
+#[derive(Clone, PartialEq, Debug)]
+enum Error {
+    Lex(char),
+    Rpn(char),
+    Eval(String)
+}
+
 impl Token {
     fn binary_left_assoc(c: char, prec: u8) -> Token {
         Token::Operator(
@@ -61,7 +75,7 @@ impl Token {
 }
 
 impl Display for Token {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
         match self {
             Token::Number(n) => write!(f, "{}", n),
             Token::RealVar(id) => write!(f, "{}", id),
@@ -96,7 +110,7 @@ impl Display for Token {
     }
 }
 
-fn lex(input: &str) -> Result<Vec<Token>, char> {
+fn lex(input: &str) -> Result<Vec<Token>, Error> {
     let mut result: Vec<Token> = Vec::with_capacity(input.len());
     let mut it = input.chars().peekable();
     // set to true if some operand has been seen
@@ -114,7 +128,7 @@ fn lex(input: &str) -> Result<Vec<Token>, char> {
                         was_function  = false;
                         Token::LeftParen(Brace::Round)
                     },
-                    _ => return Err(c),
+                    _ => return Err(Error::Lex(c)),
                 };
                 result.push(t);
             } else {
@@ -137,9 +151,9 @@ fn lex(input: &str) -> Result<Vec<Token>, char> {
                             was_function = true;
                             Token::Function(fun)
                         },
-                        Err(c) => return Err(c),
+                        Err(c) => return Err(Error::Lex(c)),
                     },
-                    _ => return Err(c),
+                    _ => return Err(Error::Lex(c)),
                 };
                 // if we have seen an operand, then we expect the binary operator
                 is_binary = match c {
@@ -194,7 +208,7 @@ fn get_function<I: Iterator<Item = char>>(mut it: &mut Peekable<I>, c: char) -> 
     }
 }
 
-fn rpn(input: &[Token], debug: bool) -> Result<Vec<&Token>, char> {
+fn rpn(input: &[Token], debug: bool) -> Result<Vec<&Token>, Error> {
     let mut stack: Vec<&Token> = Vec::new(); // holds operators and left brackets
     let mut output: Vec<&Token> = Vec::with_capacity(input.len());
     if debug {
@@ -235,13 +249,13 @@ fn rpn(input: &[Token], debug: bool) -> Result<Vec<&Token>, char> {
             Token::RightParen(cur) => {
                 if stack.is_empty() {
                     // braces are not balanced
-                    return Err(if *cur == Brace::Square { ']' } else { ')' });
+                    return Err(Error::Rpn(if *cur == Brace::Square { ']' } else { ')' }));
                 }
                 while let Some(ref top) = stack.last() {
                     match top {
                         Token::LeftParen(top) => {
                             if *cur != *top {
-                                return Err(if *cur == Brace::Square { ']' } else { ')' })
+                                return Err(Error::Rpn(if *cur == Brace::Square { ']' } else { ')' }))
                             }
                             // consume the left paren and break
                             stack.pop();
@@ -270,27 +284,36 @@ fn rpn(input: &[Token], debug: bool) -> Result<Vec<&Token>, char> {
         output.push(stack.pop().unwrap());
     }
     // if stack still is not empty, then braces are not balanced
-    if stack.is_empty() { Ok(output) } else { Err(')') }
+    if stack.is_empty() { Ok(output) } else { Err(Error::Rpn(')')) }
 }
 
-fn main() {
+fn eval(tokens: &[Token], bindings: HashMap<String, Value>) -> Result<Value, String> {
+    let mut stack: Vec<Value> = vec![];
+    for token in tokens.iter() {
+
+    }
+    Ok(*stack.first().unwrap())
+}
+
+fn main() -> Result<(), Error> {
 //    let input = "- 1 * - [2 + 3] + 4 * [- 5 * 6] + 7 * - 8";
 //    let input = "3 + 4 * 2 / ( 1 - 5 ) ^ 2 ^ 3";
 //    let input = "ln ( exp ( 1 ) / 2 * ( 3 + 4 ) )";
     let input = "ln exp ( 1.234 ) / 2 * ( 3 + 4 ) ";
-    let tokens = lex(input).unwrap();
-    let rpn = rpn(&tokens[..], true).unwrap();
+    let tokens = lex(input)?;
+    let rpn = rpn(&tokens[..], true)?;
     let output = (&rpn).into_iter().map(|t| format!(" {}", t)).collect::<String>();
     println!("--------------------------");
     println!("input: {}", input);
     println!("output: {}", output);
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::Op;
     use super::Token::*;
-    use crate::{lex, rpn, Token};
+    use crate::{lex, rpn, Token, Error};
     use crate::Arity::*;
     use crate::Assoc::*;
     use crate::Brace::*;
@@ -364,10 +387,10 @@ mod tests {
         let tokens3 = lex("ln ( exp 1.234  / 2 * [ 3 + 4 ]) ");
         let tokens4 = lex("ln ( exp ( 1.234 ) / 2 * ( 3 + 4 ]) ");
         let tokens5 = lex("ln ( exp ( 1.234 ) / 2 * [ 3 + 4 )) ");
-        assert_eq!(Err('('), tokens1);
-        assert_eq!(Err('['), tokens2);
-        assert_eq!(Err('1'), tokens3);
-        assert_eq!(Err('('), tokens4);
+        assert_eq!(Err(Error::Lex('(')), tokens1);
+        assert_eq!(Err(Error::Lex('[')), tokens2);
+        assert_eq!(Err(Error::Lex('1')), tokens3);
+        assert_eq!(Err(Error::Lex('(')), tokens4);
         // we cannot check the balance in the lexer, lex computed an Ok value
         assert_eq!(std::mem::discriminant(&tokens5), std::mem::discriminant(&Ok(vec![])));
     }
@@ -376,7 +399,7 @@ mod tests {
     fn brackets_vs_braces_balance() {
         let tokens = lex("ln ( exp ( 1.234 ) / 2 * [ 3 + 4 )) ").unwrap();
         let tokens = rpn(&tokens[..], false);
-        let expected = Err(')');
+        let expected = Err(Error::Rpn(')'));
         assert_eq!(expected, tokens);
     }
 
