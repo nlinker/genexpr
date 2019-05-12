@@ -58,20 +58,6 @@ impl Token {
                 prec,
             })
     }
-
-    fn is_operator(&self) -> bool {
-        match self {
-            Token::Operator(_) => true,
-            _ => false
-        }
-    }
-
-    fn is_left_paren(&self) -> bool {
-        match self {
-            Token::LeftParen(_) => true,
-            _ => false
-        }
-    }
 }
 
 impl Display for Token {
@@ -115,40 +101,57 @@ fn lex(input: &str) -> Result<Vec<Token>, char> {
     let mut it = input.chars().peekable();
     // set to true if some operand has been seen
     let mut is_binary = false;
+    // set to true, if function name seen and we expect symbol '(' only
+    let mut was_function = false;
 
     while let Some(c) = it.next() {
         // if the current char is whitespace, just skip
         if !c.is_whitespace() {
-            let t = match c {
-                '0'..='9' => Token::Number(get_number(&mut it, c)),
-                '+' | '-' => if is_binary { Token::binary_left_assoc(c, 5) } else { Token::unary_right_assoc(c, 8) },
-                '*' | '/' => Token::binary_left_assoc(c, 7),
-                '^'       => Token::binary_left_assoc(c, 6),
-                '<' | '>' => Token::binary_left_assoc(c, 4),
-                '=' | '#' => Token::binary_left_assoc(c, 4),
-                '~'       => Token::unary_right_assoc(c, 3),
-                '&'       => Token::binary_left_assoc(c, 2),
-                '!'       => Token::binary_left_assoc(c, 2),
-                'R'       => Token::RealVar(get_identifier(&mut it, c)),
-                'B'       => Token::BoolVar(get_identifier(&mut it, c)),
-                '[' | '(' => Token::LeftParen(if c == '[' { Brace::Square } else { Brace::Round }),
-                ']' | ')' => Token::RightParen(if c == ']' { Brace::Square } else { Brace::Round }),
-                'a'..='z'  => match get_function(&mut it, c) {
-                    Ok(fun) => Token::Function(fun),
-                    Err(c) => return Err(c),
-                },
-                _ => return Err(c),
-            };
-            // if we have seen an operand, then we expect the binary operator
-            is_binary = match c {
-                '0'..='9' => true,
-                'R' => true,
-                'B' => true,
-                ']' => true,
-                ')' => true,
-                _ => false,
-            };
-            result.push(t);
+            // we have seen function as the previous token, expect open parentheses only
+            if was_function {
+                let t = match c {
+                    '(' => {
+                        was_function  = false;
+                        Token::LeftParen(Brace::Round)
+                    },
+                    _ => return Err(c),
+                };
+                result.push(t);
+            } else {
+                let t = match c {
+                    '0'..='9' => Token::Number(get_number(&mut it, c)),
+                    '+' | '-' => if is_binary { Token::binary_left_assoc(c, 5) } else { Token::unary_right_assoc(c, 8) },
+                    '*' | '/' => Token::binary_left_assoc(c, 7),
+                    '^'       => Token::binary_left_assoc(c, 6),
+                    '<' | '>' => Token::binary_left_assoc(c, 4),
+                    '=' | '#' => Token::binary_left_assoc(c, 4),
+                    '~'       => Token::unary_right_assoc(c, 3),
+                    '&'       => Token::binary_left_assoc(c, 2),
+                    '!'       => Token::binary_left_assoc(c, 2),
+                    'R'       => Token::RealVar(get_identifier(&mut it, c)),
+                    'B'       => Token::BoolVar(get_identifier(&mut it, c)),
+                    '['       => Token::LeftParen(Brace::Square),
+                    ']' | ')' => Token::RightParen(if c == ']' { Brace::Square } else { Brace::Round }),
+                    'a'..='z'  => match get_function(&mut it, c) {
+                        Ok(fun) => {
+                            was_function = true;
+                            Token::Function(fun)
+                        },
+                        Err(c) => return Err(c),
+                    },
+                    _ => return Err(c),
+                };
+                // if we have seen an operand, then we expect the binary operator
+                is_binary = match c {
+                    '0'..='9' => true,
+                    'R' => true,
+                    'B' => true,
+                    ']' => true,
+                    ')' => true,
+                    _ => false,
+                };
+                result.push(t);
+            }
         }
     }
     Ok(result)
@@ -203,7 +206,7 @@ fn rpn(input: &[Token], debug: bool) -> Result<Vec<&Token>, char> {
             Token::RealVar(_) => output.push(token),
             Token::BoolVar(_) => output.push(token),
             Token::LeftParen(_) => stack.push(token),
-            Token::Function(fun) => stack.push(token),
+            Token::Function(_) => stack.push(token),
             Token::Operator(op) => {
                 while let Some(&top) = stack.last() {
                     let cond = match top {
@@ -260,8 +263,9 @@ fn rpn(input: &[Token], debug: bool) -> Result<Vec<&Token>, char> {
     }
     // after the loop, if operator stack not empty, pop everything to output queue
     while let Some(t) = stack.last() {
-        if t.is_left_paren() {
-            break;
+        match t {
+            Token::LeftParen(_) => break,
+            _ => {},
         }
         output.push(stack.pop().unwrap());
     }
@@ -272,7 +276,7 @@ fn rpn(input: &[Token], debug: bool) -> Result<Vec<&Token>, char> {
 fn main() {
 //    let input = "- 1 * - [2 + 3] + 4 * [- 5 * 6] + 7 * - 8";
 //    let input = "3 + 4 * 2 / ( 1 - 5 ) ^ 2 ^ 3";
-    let input = "ln ( exp ( 1 ) / 2 * ( 3 + 4 ) )";
+//    let input = "ln ( exp ( 1 ) / 2 * ( 3 + 4 ) )";
     let input = "ln exp ( 1.234 ) / 2 * ( 3 + 4 ) ";
     let tokens = lex(input).unwrap();
     let rpn = rpn(&tokens[..], true).unwrap();
@@ -289,6 +293,7 @@ mod tests {
     use crate::{lex, rpn, Token};
     use crate::Arity::*;
     use crate::Assoc::*;
+    use crate::Brace::*;
 
     #[test]
     fn unary_detect() {
@@ -322,10 +327,58 @@ mod tests {
             Operator(Op { symbol: '*', ary: Binary, assoc: Left, prec: 7 }),
         ];
         let actual: Vec<Token> = rpn(&tokens[..], false)
-            .iter()
-            .map(|t| *t)
+            .unwrap()
+            .into_iter()
             .cloned()
             .collect();
         assert_eq!(actual, expected);
     }
+
+    #[test]
+    fn brackets_vs_braces_pos() {
+        let tokens = lex("ln ( exp ( 1.234 ) / 2 * [ 3 + 4 ]) ").unwrap();
+        let expected: Vec<Token> = vec![
+            Function("ln".to_string()),
+            LeftParen(Round),
+            Function("exp".to_string()),
+            LeftParen(Round),
+            Number(1.234),
+            RightParen(Round),
+            Operator(Op { symbol: '/', ary: Binary, assoc: Left, prec: 7 }),
+            Number(2.0),
+            Operator(Op { symbol: '*', ary: Binary, assoc: Left, prec: 7 }),
+            LeftParen(Square),
+            Number(3.0),
+            Operator(Op { symbol: '+', ary: Binary, assoc: Left, prec: 5 }),
+            Number(4.0),
+            RightParen(Square),
+            RightParen(Round)
+        ];
+        assert_eq!(expected, tokens)
+    }
+
+    #[test]
+    fn brackets_vs_braces_neg() {
+        let tokens1 = lex("ln ( exp ( 1.234 ) / 2 * ( 3 + 4 )) ");
+        let tokens2 = lex("ln [ exp ( 1.234 ) / 2 * ( 3 + 4 )] ");
+        let tokens3 = lex("ln ( exp 1.234  / 2 * [ 3 + 4 ]) ");
+        let tokens4 = lex("ln ( exp ( 1.234 ) / 2 * ( 3 + 4 ]) ");
+        let tokens5 = lex("ln ( exp ( 1.234 ) / 2 * [ 3 + 4 )) ");
+        assert_eq!(Err('('), tokens1);
+        assert_eq!(Err('['), tokens2);
+        assert_eq!(Err('1'), tokens3);
+        assert_eq!(Err('('), tokens4);
+        // we cannot check the balance in the lexer, lex computed an Ok value
+        assert_eq!(std::mem::discriminant(&tokens5), std::mem::discriminant(&Ok(vec![])));
+    }
+
+    #[test]
+    fn brackets_vs_braces_balance() {
+        let tokens = lex("ln ( exp ( 1.234 ) / 2 * [ 3 + 4 )) ").unwrap();
+        let tokens = rpn(&tokens[..], false);
+        let expected = Err(')');
+        assert_eq!(expected, tokens);
+    }
+
+
 }
