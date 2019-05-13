@@ -1,3 +1,4 @@
+#[macro_use] extern crate maplit;
 
 use std::fmt::{Display, Formatter};
 use std::iter::Peekable;
@@ -74,6 +75,22 @@ impl Token {
     }
 }
 
+impl Display for Value {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
+        match self {
+            Error::Lex(c) => write!(f, "{}", c),
+            Error::Rpn(c) => write!(f, "{}", c),
+            Error::Eval(s) => write!(f, "{}", s),
+        }
+    }
+}
+
 impl Display for Token {
     fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
         match self {
@@ -108,6 +125,31 @@ impl Display for Token {
             Token::Function(name) => write!(f, "{}", name),
         }
     }
+}
+
+fn main() -> Result<(), Error> {
+//    let input = "- 1 * - [2 + 3] + 4 * [- 5 * 6] + 7 * - 8";
+//    let input = "3 + 4 * 2 / ( 1 - 5 ) ^ 2 ^ 3";
+//    let input = "ln ( exp ( 1 ) / 2 * ( 3 + 4 ) )";
+    let input = "ln(R0) + ln(exp(R1) * 2 > 1 & Bx)";
+    let tokens = lex(input)?;
+    let rpn = rpn(&tokens[..], true)?;
+    let bindings = hashmap!{
+        "R0" => Value::Real(1.0),
+        "R1" => Value::Real(0.5),
+        "Bx" => Value::Bool(true),
+    };
+    let result = eval(&rpn[..], &bindings, false);
+    let rpn = (&rpn).into_iter().map(|t| format!(" {}", t)).collect::<String>();
+    println!("--------------------------");
+    println!("Input: {}", input);
+    println!("Output: {}", rpn);
+    println!("Bindings: {:?}", bindings);
+    match result {
+        Ok(ok) => println!("Eval success: {}", ok),
+        Err(err) => println!("Eval error: {}", err),
+    };
+    Ok(())
 }
 
 fn lex(input: &str) -> Result<Vec<Token>, Error> {
@@ -171,48 +213,12 @@ fn lex(input: &str) -> Result<Vec<Token>, Error> {
     Ok(result)
 }
 
-fn get_number<I: Iterator<Item = char>>(it: &mut Peekable<I>, c: char) -> f32 {
-    let mut n = c.to_digit(10).expect("gen_number invariant violation") as f32;
-    while let Some(Some(k)) = it.peek().map(|c| c.to_digit(10)) {
-        n = n * 10.0 + (k as f32);
-        it.next();
-    }
-    // maybe there is a fractional part of the number
-    if it.peek() == Some(&'.') {
-        it.next();
-    }
-    let mut d = 1.0;
-    while let Some(Some(k)) = it.peek().map(|c| c.to_digit(10)) {
-        d = d * 10.0;
-        n = n + (k as f32) / d;
-        it.next();
-    }
-    n
-}
-
-fn get_identifier<I: Iterator<Item = char>>(it: &mut Peekable<I>, c: char) -> String {
-    let mut id = c.to_string();
-    while let Some(s) = it.peek().filter(|c| c.is_alphanumeric()) {
-        id += &(s.to_string());
-        it.next();
-    }
-    id
-}
-
-fn get_function<I: Iterator<Item = char>>(mut it: &mut Peekable<I>, c: char) -> Result<String, char> {
-    let fun = get_identifier(&mut it, c);
-    if fun == "exp" || fun == "ln" {
-        Ok(fun)
-    } else {
-        Err(c)
-    }
-}
-
 fn rpn(input: &[Token], debug: bool) -> Result<Vec<&Token>, Error> {
     let mut stack: Vec<&Token> = Vec::new(); // holds operators and left brackets
     let mut output: Vec<&Token> = Vec::with_capacity(input.len());
     if debug {
-        println!("{:10}  {:30}{:30}", "token", "output", "stack");
+        println!("{:^7}|{:^40}|{:^30}", "token", "output", "stack");
+        println!("{:^7}+{:^40}+{:^30}", "------", "------------", "------------");
     }
     for token in input {
         match token {
@@ -272,7 +278,7 @@ fn rpn(input: &[Token], debug: bool) -> Result<Vec<&Token>, Error> {
         if debug {
             let str_stack = stack.iter().map(|t| format!(" {}", t)).collect::<String>();
             let str_output = output.iter().map(|t| format!(" {}", t)).collect::<String>();
-            println!("{:10}  {:30}{:30}", token, str_output, str_stack);
+            println!("{:<7}|{:<40}|{:<30}", token.to_string(), str_output, str_stack);
         }
     }
     // after the loop, if operator stack not empty, pop everything to output queue
@@ -283,29 +289,179 @@ fn rpn(input: &[Token], debug: bool) -> Result<Vec<&Token>, Error> {
         }
         output.push(stack.pop().unwrap());
     }
+    if debug {
+        let str_stack = stack.iter().map(|t| format!(" {}", t)).collect::<String>();
+        let str_output = output.iter().map(|t| format!(" {}", t)).collect::<String>();
+        println!("{:<7}|{:<40}|{:<30}", "", str_output, str_stack);
+    }
     // if stack still is not empty, then braces are not balanced
     if stack.is_empty() { Ok(output) } else { Err(Error::Rpn(')')) }
 }
 
-fn eval(tokens: &[Token], bindings: HashMap<String, Value>) -> Result<Value, String> {
+fn eval(tokens: &[&Token], bindings: &HashMap<&str, Value>, is_debug: bool) -> Result<Value, Error> {
     let mut stack: Vec<Value> = vec![];
-    for token in tokens.iter() {
-
+    if is_debug {
+        println!("{:^7}|{:^40}", "token", "stack");
+        println!("{:^7}+{:^40}", "------", "------------");
     }
-    Ok(*stack.first().unwrap())
+    for token in tokens.iter() {
+        match token {
+            Token::Number(n) => stack.push(Value::Real(*n)),
+            Token::RealVar(var) => match bindings.get(&var[..]) {
+                Some(x@Value::Real(_)) => stack.push(*x),
+                Some(x@Value::Bool(_)) => return Err(Error::Eval(format!("Type error: real variable {} has value {:?}", var, x))),
+                _ => return Err(Error::Eval(format!("Variable not defined: {}", var)))
+            },
+            Token::BoolVar(var) => match bindings.get(&var[..]) {
+                Some(x@Value::Bool(_)) => stack.push(*x),
+                Some(x@Value::Real(_)) => return Err(Error::Eval(format!("Type error: boolean variable {} has value {:?}", var, x))),
+                _ => return Err(Error::Eval(format!("Variable not defined: {}", var)))
+            },
+            Token::Operator(op) => {
+                match op.ary {
+                    Arity::Unary => eval_unary_operator(op, &mut stack)?,
+                    Arity::Binary => eval_binary_operator(op, &mut stack)?,
+                }
+            },
+            Token::Function(fun) => eval_function(fun, &mut stack)?,
+            _ => return Err(Error::Eval(format!("Unexpected token in RPN: {}", token))),
+        }
+        if is_debug {
+            let str_stack = stack.iter().map(|t| format!(" {}", t)).collect::<String>();
+            println!("{:<7}|{:<40}", token.to_string(), str_stack);
+        }
+    }
+    if is_debug {
+        // print final state of the stack
+        let str_stack = stack.iter().map(|t| format!(" {}", t)).collect::<String>();
+        println!("{:<7}|{:<40}", "", str_stack);
+    }
+    // the stack size should be exactly 1
+    if stack.len() == 1 {
+        Ok(stack.pop().unwrap())
+    } else if stack.is_empty() {
+        Err(Error::Eval("The expression is empty".into()))
+    } else {
+        Err(Error::Eval("The expression is not exhaustive".into()))
+    }
 }
 
-fn main() -> Result<(), Error> {
-//    let input = "- 1 * - [2 + 3] + 4 * [- 5 * 6] + 7 * - 8";
-//    let input = "3 + 4 * 2 / ( 1 - 5 ) ^ 2 ^ 3";
-//    let input = "ln ( exp ( 1 ) / 2 * ( 3 + 4 ) )";
-    let input = "ln exp ( 1.234 ) / 2 * ( 3 + 4 ) ";
-    let tokens = lex(input)?;
-    let rpn = rpn(&tokens[..], true)?;
-    let output = (&rpn).into_iter().map(|t| format!(" {}", t)).collect::<String>();
-    println!("--------------------------");
-    println!("input: {}", input);
-    println!("output: {}", output);
+fn get_number<I: Iterator<Item = char>>(it: &mut Peekable<I>, c: char) -> f32 {
+    let mut n = c.to_digit(10).expect("gen_number invariant violation") as f32;
+    while let Some(Some(k)) = it.peek().map(|c| c.to_digit(10)) {
+        n = n * 10.0 + (k as f32);
+        it.next();
+    }
+    // maybe there is a fractional part of the number
+    if it.peek() == Some(&'.') {
+        it.next();
+    }
+    let mut d = 1.0;
+    while let Some(Some(k)) = it.peek().map(|c| c.to_digit(10)) {
+        d = d * 10.0;
+        n = n + (k as f32) / d;
+        it.next();
+    }
+    n
+}
+
+fn get_identifier<I: Iterator<Item = char>>(it: &mut Peekable<I>, c: char) -> String {
+    let mut id = c.to_string();
+    while let Some(s) = it.peek().filter(|c| c.is_alphanumeric()) {
+        id += &(s.to_string());
+        it.next();
+    }
+    id
+}
+
+fn get_function<I: Iterator<Item = char>>(mut it: &mut Peekable<I>, c: char) -> Result<String, char> {
+    let fun = get_identifier(&mut it, c);
+    if fun == "exp" || fun == "ln" {
+        Ok(fun)
+    } else {
+        Err(c)
+    }
+}
+
+fn eval_unary_operator(op: &Op, stack: &mut Vec<Value>) -> Result<(), Error> {
+    if let Some(a) = stack.pop() {
+        if let Value::Real(a) = a {
+            match op.symbol {
+                '-' => stack.push(Value::Real(-a)),
+                '+' => stack.push(Value::Real(a)),
+                _ => return Err(Error::Eval(format!("Unknown real unary operator {}", op.symbol)))
+            }
+        } else if let Value::Bool(a) = a {
+            match op.symbol {
+                '~' => stack.push(Value::Bool(!a)),
+                _ => return Err(Error::Eval(format!("Unknown boolean unary operator {}", op.symbol)))
+            }
+        }
+    } else {
+        return Err(Error::Eval(format!("Not enough values to call unary operator {}", op.symbol)))
+    }
+    Ok(())
+}
+
+fn eval_function(fun: &str, stack: &mut Vec<Value>) -> Result<(), Error> {
+    if let Some(a) = stack.pop() {
+        if let Value::Real(a) = a {
+            match fun {
+                "exp" => stack.push(Value::Real(a.exp())),
+                "ln" => if a > 0.0 { stack.push(Value::Real(a.ln())) } else {
+                    return Err(Error::Eval(format!("Call function '{}' is invalid for argument {}", fun, a)))
+                },
+                _ => return Err(Error::Eval(format!("Unknown function '{}'", fun)))
+            }
+        } else {
+            return Err(Error::Eval(format!("Type error, expected real value for function '{}', found {:?}", fun, a)))
+        }
+    } else {
+        return Err(Error::Eval(format!("Not enough values to call function {}", fun)))
+    }
+    Ok(())
+}
+
+fn eval_binary_operator(op: &Op, stack: &mut Vec<Value>) -> Result<(), Error> {
+    // NOTE: the arguments for the operations are taken from stack in the opposite order
+    // e.g. if the original expression is `a / b`, then RPN is `a b /`, therefore we
+    // take `b` at first then the second is `a`
+    if let Some(b) = stack.pop() {
+        if let Some(a) = stack.pop() {
+            match (a, b) {
+                (Value::Real(a), Value::Real(b)) => {
+                    // real functions
+                    match op.symbol {
+                        '+' => stack.push(Value::Real(a + b)),
+                        '-' => stack.push(Value::Real(a - b)),
+                        '*' => stack.push(Value::Real(a * b)),
+                        '/' => if b != 0.0 { stack.push(Value::Real(a / b)) } else {
+                            return Err(Error::Eval(format!("Division by zero")))
+                        },
+                        '^' => stack.push(Value::Real(a.powf(b))),
+                        '=' => stack.push(Value::Bool(a == b)),
+                        '#' => stack.push(Value::Bool(a != b)),
+                        '>' => stack.push(Value::Bool(a > b)),
+                        '<' => stack.push(Value::Bool(a < b)),
+                        _ => return Err(Error::Eval(format!("Unknown real binary operator {}", op.symbol)))
+                    }
+                },
+                (Value::Bool(a), Value::Bool(b)) => {
+                    // boolean functions
+                    match op.symbol {
+                        '&' => stack.push(Value::Bool(a && b)),
+                        '!' => stack.push(Value::Bool(a || b)),
+                        _ => return Err(Error::Eval(format!("Unknown boolean binary operator '{}'", op.symbol)))
+                    }
+                },
+                _ => return Err(Error::Eval(format!("Type error to call binary operator '{}' {:?} {:?}", op.symbol, a, b))),
+            }
+        } else {
+            return Err(Error::Eval(format!("Not enough values to call operator '{}'", op.symbol)))
+        }
+    } else {
+        return Err(Error::Eval(format!("Not enough values to call operator '{}'", op.symbol)))
+    }
     Ok(())
 }
 
@@ -313,10 +469,12 @@ fn main() -> Result<(), Error> {
 mod tests {
     use super::Op;
     use super::Token::*;
-    use crate::{lex, rpn, Token, Error};
+    use crate::{lex, rpn, Token, Error, Value, eval};
     use crate::Arity::*;
     use crate::Assoc::*;
     use crate::Brace::*;
+    use crate::Value::*;
+    use std::collections::HashMap;
 
     #[test]
     fn unary_detect() {
@@ -403,5 +561,38 @@ mod tests {
         assert_eq!(expected, tokens);
     }
 
+    #[test]
+    fn eval_logic() {
+        let bindings = hashmap!{"BF" => Bool(false), "BT" => Bool(true)};
+        let result = test_full_chain("1 = 1 & BF ! ~~~BT", &bindings, false);
+        assert_eq!(Ok(Bool(false)), result);
 
+        let result = test_full_chain("1 = 1 & 1 # 2", &bindings, false);
+        assert_eq!(Ok(Bool(true)), result);
+    }
+
+    #[test]
+    fn evalz() {
+        let bindings = hashmap!{"R0" => Real(0.5), "R1" => Real(1.0), "Bt" => Bool(true)};
+        let res = test_full_chain("exp(R0) / ln(R1)", &bindings, false);
+        assert_eq!(Err(Error::Eval("Division by zero".into())), res);
+
+        let res = test_full_chain("exp(R0) / [ln(R1) = 1]", &bindings, true);
+        assert_eq!(Err(Error::Eval("Type error to call binary operator '/' Real(1.6487212) Bool(false)".into())), res);
+
+        let res = test_full_chain("exp(R0) > [ln(R1) + 1.6] * Bt ", &bindings, true);
+        assert_eq!(Err(Error::Eval("Type error to call binary operator '*' Real(1.6) Bool(true)".into())), res);
+
+        let res = test_full_chain("R0 R0 + R1", &bindings, true);
+        assert_eq!(Err(Error::Eval("The expression is not exhaustive".into())), res);
+
+        let res = test_full_chain("+ + +", &bindings, true);
+        assert_eq!(Err(Error::Eval("Not enough values to call unary operator +".into())), res);
+    }
+
+    fn test_full_chain(input: &str, bindings: &HashMap<&str, Value>, is_debug: bool) -> Result<Value, Error> {
+        let tokens = lex(input)?;
+        let rpn = rpn(&tokens[..], is_debug)?;
+        eval(&rpn[..], &bindings, is_debug)
+    }
 }
