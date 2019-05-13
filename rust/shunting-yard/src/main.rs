@@ -139,7 +139,7 @@ fn main() -> Result<(), Error> {
         "R1" => Value::Real(0.5),
         "Bx" => Value::Bool(true),
     };
-    let result = eval(&rpn[..], &bindings, false);
+    let result = eval(&rpn[..], &bindings, true);
     let rpn = (&rpn).into_iter().map(|t| format!(" {}", t)).collect::<String>();
     println!("--------------------------");
     println!("Input: {}", input);
@@ -301,8 +301,8 @@ fn rpn(input: &[Token], debug: bool) -> Result<Vec<&Token>, Error> {
 fn eval(tokens: &[&Token], bindings: &HashMap<&str, Value>, is_debug: bool) -> Result<Value, Error> {
     let mut stack: Vec<Value> = vec![];
     if is_debug {
-        println!("{:^7}|{:^40}", "token", "stack");
-        println!("{:^7}+{:^40}", "------", "------------");
+        println!("{:^7}|{:^80}", "token", "stack");
+        println!("{:^7}+{:^80}", "------", "------------");
     }
     for token in tokens.iter() {
         match token {
@@ -328,13 +328,13 @@ fn eval(tokens: &[&Token], bindings: &HashMap<&str, Value>, is_debug: bool) -> R
         }
         if is_debug {
             let str_stack = stack.iter().map(|t| format!(" {}", t)).collect::<String>();
-            println!("{:<7}|{:<40}", token.to_string(), str_stack);
+            println!("{:<7}|{:<80}", token.to_string(), str_stack);
         }
     }
     if is_debug {
         // print final state of the stack
         let str_stack = stack.iter().map(|t| format!(" {}", t)).collect::<String>();
-        println!("{:<7}|{:<40}", "", str_stack);
+        println!("{:<7}|{:<80}", "", str_stack);
     }
     // the stack size should be exactly 1
     if stack.len() == 1 {
@@ -577,17 +577,24 @@ mod tests {
         let res = test_full_chain("exp(R0) / ln(R1)", &bindings, false);
         assert_eq!(Err(Error::Eval("Division by zero".into())), res);
 
-        let res = test_full_chain("exp(R0) / [ln(R1) = 1]", &bindings, true);
+        let res = test_full_chain("exp(R0) / [ln(R1) = 1]", &bindings, false);
         assert_eq!(Err(Error::Eval("Type error to call binary operator '/' Real(1.6487212) Bool(false)".into())), res);
 
-        let res = test_full_chain("exp(R0) > [ln(R1) + 1.6] * Bt ", &bindings, true);
+        let res = test_full_chain("exp(R0) > [ln(R1) + 1.6] * Bt ", &bindings, false);
         assert_eq!(Err(Error::Eval("Type error to call binary operator '*' Real(1.6) Bool(true)".into())), res);
 
-        let res = test_full_chain("R0 R0 + R1", &bindings, true);
+        let res = test_full_chain("R0 R0 + R1", &bindings, false);
         assert_eq!(Err(Error::Eval("The expression is not exhaustive".into())), res);
 
-        let res = test_full_chain("+ + +", &bindings, true);
+        let res = test_full_chain("+ + +", &bindings, false);
         assert_eq!(Err(Error::Eval("Not enough values to call unary operator +".into())), res);
+
+        let bindings = hashmap!{"R0" => Bool(true), "Bt" => Real(0.123)};
+        let res = test_full_chain("R0 + Bt", &bindings, false);
+        assert_eq!(Err(Error::Eval("Type error: real variable R0 has value Bool(true)".into())), res);
+
+        let res = test_full_chain("R1 + 1", &bindings, false);
+        assert_eq!(Err(Error::Eval("Variable not defined: R1".into())), res);
     }
 
     fn test_full_chain(input: &str, bindings: &HashMap<&str, Value>, is_debug: bool) -> Result<Value, Error> {
