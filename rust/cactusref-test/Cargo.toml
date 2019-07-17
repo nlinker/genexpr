@@ -1,0 +1,12 @@
+[package]
+name = "cactusref-app"
+version = "0.1.0"
+authors = ["Nick"]
+edition = "2018"
+
+[[bin]]
+name = "cactusref-app"
+path = "src/main.rs"
+
+[dependencies.cactusref]
+path = "./cactusref"
