@@ -11,6 +11,7 @@ use core::ptr::{self, NonNull};
 use core::slice;
 
 use std::alloc::{handle_alloc_error, Alloc, Global, Layout};
+use std::collections::HashMap;
 
 use crate::link::Links;
 use crate::ptr::{box_free, data_offset, is_dangling, set_data_ptr, RcBox, RcBoxPtr};
@@ -30,14 +31,46 @@ use crate::Weak;
 /// instead of `value.get_mut()`. This avoids conflicts with methods of the
 /// inner type `T`.
 pub struct Rc<T: ?Sized> {
-    pub(crate) ptr: NonNull<RcBox<T>>,
-    pub(crate) phantom: PhantomData<T>,
+    /// debug
+    pub ptr: NonNull<RcBox<T>>,
+    /// debug
+    pub phantom: PhantomData<T>,
 }
 
 impl<T: ?Sized> !Send for Rc<T> {}
 impl<T: ?Sized> !Sync for Rc<T> {}
 
 impl<T> Rc<T> {
+
+    ///
+    pub fn dbg_value(&self) -> &T { unsafe { &self.ptr.as_ref().value } }
+
+    ///
+    pub fn dbg_links(&self) -> HashMap<String, usize> {
+        let mut hm: HashMap<String, usize> = HashMap::new();
+        unsafe {
+            let links = &self.ptr.as_ref().links.borrow().registry;
+            for (k, v) in links.iter() {
+                let i: usize = k.0.as_ref() as *const _ as usize;
+                hm.insert(format!("{:x}", i), *v);
+            }
+        }
+        hm
+    }
+
+    ///
+    pub fn dbg_back_links(&self) -> HashMap<String, usize> {
+        let mut hm: HashMap<String, usize> = HashMap::new();
+        unsafe {
+            let links = &self.ptr.as_ref().back_links.borrow().registry;
+            for (k, v) in links.iter() {
+                let i: usize = k as *const _ as usize;
+                hm.insert(format!("{:x}", i), *v);
+            }
+        }
+        hm
+    }
+
     /// Constructs a new `Rc<T>`.
     ///
     /// # Examples
