@@ -3,24 +3,35 @@
 
 use crate::cactusref_graph::{circular_graph, fully_connected_graph, Node};
 use cactusref::Rc;
-use std::cell::RefCell;
+use std::cell::{RefCell, Ref};
 
 fn main() {
     let g1 = circular_graph(5);
     for i in 0..g1.len() {
-        let rc = &g1[i];
-        let linkz = &g1[i].borrow().links.iter().map(|l|
-            format!("{:x} ({}s,{}w)", l as *const _ as usize, Rc::strong_count(l), Rc::weak_count(l))
-        ).collect::<Vec<_>>();
+        let links = &g1[i].borrow().links.iter().map(|rc: &Rc<RefCell<Node<usize>>>| {
+            let node_ref: &Node<usize> = &rc.borrow();
+            let node_link: usize = node_ref as *const _ as usize;
+            //
+            format!("Rc({:x}, {}s, {}w, {:?}, {:?})",
+                    node_link,
+                    Rc::strong_count(rc),
+                    Rc::weak_count(rc),
+                    rc.dbg_links(),
+                    rc.dbg_back_links()
+            )
+        }).collect::<Vec<_>>();
 
-        // let pi: *const RefCell<Node<usize>> = Rc::into_raw(g1[i]);
-        let nn_rc_box = unsafe { &g1[i].ptr.as_ref() };
-        println!("{:p}, {:p}, ({}s,{}w), {:?}",
-                 nn_rc_box,
-                 &g1[i],
+        let rc: &Rc<RefCell<Node<usize>>> = &g1[i];
+        let node_ref: &Node<usize> = &*g1[i].borrow();
+        let node_link: usize = node_ref as *const _ as usize;
+        println!("&Rc({:x}), Rc({:x}, {}s, {}w, {:?}, {:?}), links: {:?}",
+                 &g1[i] as *const _ as usize,
+                 node_link,
                  Rc::strong_count(rc),
                  Rc::weak_count(rc),
-                 linkz,
+                 rc.dbg_links(),
+                 rc.dbg_back_links(),
+                 links,
         );
     }
     fully_connected_graph(5);
