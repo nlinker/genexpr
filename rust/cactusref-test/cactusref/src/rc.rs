@@ -46,12 +46,15 @@ impl<T> Rc<T> {
     pub fn dbg_value(&self) -> &T { unsafe { &self.ptr.as_ref().value } }
 
     ///
-    pub fn dbg_links(&self) -> HashMap<String, usize> {
+    pub fn dbg_fwd_links(&self) -> HashMap<String, usize> {
         let mut hm: HashMap<String, usize> = HashMap::new();
         unsafe {
-            let links = &self.ptr.as_ref().links.borrow().registry;
+            let links = &self.inner().links.borrow().registry;
             for (k, v) in links.iter() {
-                let i: usize = k.0.as_ref() as *const _ as usize;
+                // let k: &link::Link<T> = k;
+                // let v: &usize = v;
+                let rb: &RcBox<T> = k.0.as_ref();
+                let i: usize = rb as *const _ as usize;
                 hm.insert(format!("{:x}", i), *v);
             }
         }
@@ -64,7 +67,10 @@ impl<T> Rc<T> {
         unsafe {
             let links = &self.ptr.as_ref().back_links.borrow().registry;
             for (k, v) in links.iter() {
-                let i: usize = k as *const _ as usize;
+                // let k: &link::Link<T> = k;
+                // let v: &usize = v;
+                let rb: &RcBox<T> = k.0.as_ref();
+                let i: usize = rb as *const _ as usize;
                 hm.insert(format!("{:x}", i), *v);
             }
         }

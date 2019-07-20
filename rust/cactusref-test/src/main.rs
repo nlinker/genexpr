@@ -4,8 +4,11 @@
 use crate::cactusref_graph::{circular_graph, fully_connected_graph, Node};
 use cactusref::Rc;
 use std::cell::{RefCell, Ref};
+use log::{trace, Level};
 
 fn main() {
+    simple_logger::init_with_level(Level::Trace).unwrap();
+    trace!("");
     let g1 = circular_graph(5);
     for i in 0..g1.len() {
         let links = &g1[i].borrow().links.iter().map(|rc: &Rc<RefCell<Node<usize>>>| {
@@ -16,12 +19,14 @@ fn main() {
                     node_link,
                     Rc::strong_count(rc),
                     Rc::weak_count(rc),
-                    rc.dbg_links(),
+                    rc.dbg_fwd_links(),
                     rc.dbg_back_links()
             )
         }).collect::<Vec<_>>();
 
         let rc: &Rc<RefCell<Node<usize>>> = &g1[i];
+        // let rc_box: &RcBox<RefCell<Node<usize>>> = rc.inner();
+        // let fwd_links: RefCell<Links<RefCell<Node<usize>>>> = unsafe { rc.ptr.as_ref().links };
         let node_ref: &Node<usize> = &*g1[i].borrow();
         let node_link: usize = node_ref as *const _ as usize;
         println!("&Rc({:x}), Rc({:x}, {}s, {}w, {:?}, {:?}), links: {:?}",
@@ -29,7 +34,7 @@ fn main() {
                  node_link,
                  Rc::strong_count(rc),
                  Rc::weak_count(rc),
-                 rc.dbg_links(),
+                 rc.dbg_fwd_links(),
                  rc.dbg_back_links(),
                  links,
         );
@@ -137,14 +142,14 @@ mod cactusref_graph {
     #[derive(Debug)]
     pub struct Node<T> {
         pub links: Vec<Rc<RefCell<Self>>>,
-        pub _data: T,
+        pub data: T,
     }
 
     pub fn circular_graph(count: usize) -> Vec<Rc<RefCell<Node<usize>>>> {
         let mut nodes = vec![];
         for i in 0..count {
             nodes.push(Rc::new(RefCell::new(Node {
-                _data: i,
+                data: i,
                 links: vec![],
             })));
         }
@@ -160,7 +165,7 @@ mod cactusref_graph {
         let mut nodes = vec![];
         for i in 0..count {
             nodes.push(Rc::new(RefCell::new(Node {
-                _data: i,
+                data: i,
                 links: vec![],
             })));
         }
