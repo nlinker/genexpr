@@ -1,4 +1,4 @@
-## Haskell playground
+## Haskell/Rust/Scala playground
 
 The repo consists of some experiments and tasks done in Haskell.
 
@@ -12,3 +12,8 @@ enable good testability.
 
 The project contains POC code that shows how to do transactions with free monads.
 
+
+#### Useful links
+
+To separate subdir into a new repository
+https://help.github.com/en/articles/splitting-a-subfolder-out-into-a-new-repository
