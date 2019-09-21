@@ -17,3 +17,4 @@ logs/
 
 **/*.rs.bk
 Cargo.lock
+haskell/sokoban/
