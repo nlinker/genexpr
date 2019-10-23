@@ -57,7 +57,7 @@ someAlgorithm src dst rang = do
       HM.insert table dst src
       has <- member table src
       traceShowM $ "has = " <> show has
-      return []
+      return [src, dst]
   traceShowM path
   return path
   where

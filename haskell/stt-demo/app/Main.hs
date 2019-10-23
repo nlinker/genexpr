@@ -4,5 +4,6 @@ import Lib
 
 main :: IO ()
 main = do
-  path <- someAlgorithm (Point 1 1) (Point 2 2)
+  let rang p = return 1
+  path <- someAlgorithm (Point 1 1) (Point 2 2) rang
   putStrLn $ "path = " <> show path
