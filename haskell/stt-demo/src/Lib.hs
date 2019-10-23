@@ -17,16 +17,16 @@
 
 module Lib where
 
-import Data.Hashable           (Hashable)
-import Control.Monad.ST        (ST, runST)
-import Control.Monad.ST.Trans  (STT, runSTT)
+import Data.Hashable                   (Hashable)
+import Control.Monad.ST                (ST, runST)
+import Control.Monad.ST.Trans          (STT, runSTT)
 import Control.Monad.ST.Trans.Internal (liftST)
-import Data.Maybe (isJust, fromMaybe)
-import GHC.Generics (Generic)
-import Control.Monad           (forM_, when, filterM)
-import Control.Monad.Primitive (PrimMonad, PrimState)
+import Data.Maybe                      (isJust, fromMaybe)
+import GHC.Generics                    (Generic)
+import Control.Monad                   (forM_, when, filterM)
+import Control.Monad.Primitive         (PrimMonad, PrimState)
 
-import qualified Data.Heap.Mutable.ModelD as HPM
+import qualified Data.Heap.Mutable.ModelD   as HPM
 import qualified Data.HashMap.Mutable.Basic as HM
 import Debug.Trace
 
