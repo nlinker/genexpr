@@ -38,7 +38,7 @@ data Point = Point Int Int deriving (Eq, Show, Generic, Hashable)
 instance Ord Point where
   compare (Point i1 j1) (Point i2 j2) = compare (i1, i2) (j1, j2)
 
-someAlgorithm :: (Monad m, Hashable p, Ord p, Show p) => p -> p -> (p -> m Int) -> m [p]
+someAlgorithm :: forall m p . (Monad m, Hashable p, Ord p, Show p) => p -> p -> (p -> m Int) -> m [p]
 someAlgorithm src dst rang = do
   path <- runSTT $ do
     table <- HM.new
@@ -50,7 +50,7 @@ someAlgorithm src dst rang = do
   traceShowM path
   return path
   where
-    member :: (Monad m, Hashable k, Eq k) => HM.MHashMap s k a -> k -> STT s m Bool
+    -- member :: (Monad m, Hashable k, Eq k) => HM.MHashMap s k a -> k -> STT s m Bool
     member table p = do
       value <- HM.lookup table p
       return $ isJust value 
