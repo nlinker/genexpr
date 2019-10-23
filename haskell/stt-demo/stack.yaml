@@ -1,0 +1,7 @@
+resolver: lts-14.11
+packages:
+  - .
+
+extra-deps:
+  - impure-containers-0.5.0
+  - STMonadTrans-0.4.4
