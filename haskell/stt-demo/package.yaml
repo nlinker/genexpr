@@ -41,3 +41,6 @@ dependencies:
   - STMonadTrans
   - impure-containers
   - primitive
+  - qm-interpolated-string
+  - mtl
+
