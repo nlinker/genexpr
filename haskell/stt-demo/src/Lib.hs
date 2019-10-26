@@ -67,15 +67,15 @@ data Alg m p where
 buildAlg :: forall m . MonadState Integer m => Point -> m (Alg m Point)
 buildAlg dst = return $ Alg { select = select, step = step, stopCond = stopCond }
   where
-    stepCache = makeCache
     select :: m Direction
     select = do
       modify $ \n -> if even n then n `div` 2 else n * 3 + 1
       state <- get
       return $ toEnum $ fromIntegral state `mod` 4
 
+    stepMemo = makeMemo
     step :: Direction -> Point -> m Point
-    step d p = return $ memo2 stepCache go d p
+    step d p = return $ memo2 stepMemo go d p
       where
         go d (Point i j) =
           case d of
@@ -127,8 +127,8 @@ curry4 f w x y z = f (w, x, y, z)
 uncurry4 :: (a -> b -> c -> d -> e) -> (a, b, c, d) -> e
 uncurry4 f (w, x, y, z) = f w x y z
 
-makeCache :: MVar (M.Map a b)
-makeCache = unsafePerformIO $ do
+makeMemo :: MVar (M.Map a b)
+makeMemo = unsafePerformIO $ do
   v <- newMVar M.empty
   return v
 {-# NOINLINE makeCache #-}
