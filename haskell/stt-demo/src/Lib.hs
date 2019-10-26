@@ -131,7 +131,7 @@ makeMemo :: MVar (M.Map a b)
 makeMemo = unsafePerformIO $ do
   v <- newMVar M.empty
   return v
-{-# NOINLINE makeCache #-}
+{-# NOINLINE makeMemo #-}
 
 memo :: (Ord a, Show a) => MVar (M.Map a b) -> (a -> b) -> a -> b
 memo cache f x = unsafePerformIO $ do
