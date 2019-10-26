@@ -12,7 +12,7 @@
 
 module Lib where
 
-import Control.Concurrent.MVar         (modifyMVar_, newMVar, readMVar)
+import Control.Concurrent.MVar         (MVar, modifyMVar_, newMVar, readMVar)
 import Control.Monad                   (filterM, forM_, when)
 import Control.Monad.Identity          (runIdentity)
 import Control.Monad.Primitive         (PrimMonad, PrimState, primitive)
@@ -65,22 +65,24 @@ data Alg m p where
   } -> Alg m p
 
 buildAlg :: forall m . MonadState Integer m => Point -> m (Alg m Point)
-buildAlg dst = return $ Alg { select = select, step = memoStep, stopCond = stopCond }
+buildAlg dst = return $ Alg { select = select, step = step, stopCond = stopCond }
   where
+    stepCache = makeCache
     select :: m Direction
     select = do
       modify $ \n -> if even n then n `div` 2 else n * 3 + 1
       state <- get
       return $ toEnum $ fromIntegral state `mod` 4
 
-    memoStep :: Direction -> Point -> m Point
-    memoStep d p = memo step (d, p)
-    step (d, (Point i j)) = return $
-      case d of
-        U -> Point (i - 1) (j)
-        D -> Point (i + 1) (j)
-        L -> Point (i) (j - 1)
-        R -> Point (i) (j + 1)
+    step :: Direction -> Point -> m Point
+    step d p = return $ memo2 stepCache go d p
+      where
+        go d (Point i j) =
+          case d of
+            U -> Point (i - 1) (j)
+            D -> Point (i + 1) (j)
+            L -> Point (i) (j - 1)
+            R -> Point (i) (j + 1)
 
     stopCond :: Point -> m Bool
     stopCond p = return $ dst == p
@@ -103,34 +105,83 @@ testAlg = do
   let state = 13
   path <- flip evalStateT state $ do
         alg <- buildAlg (Point 0 0)
-        algorithm alg (Point 3 2)
+        algorithm alg (Point 2 2)
   putStrLn $ "path = " <> show path
+
+
+curry2 :: ((a, b) -> c) -> a -> b -> c
+curry2 f x y = f (x, y)
+
+uncurry2 :: (a -> b -> c) -> (a, b) -> c
+uncurry2 f (x, y) = f x y
+
+curry3 :: ((a, b, c) -> d) -> a -> b -> c -> d
+curry3 f x y z = f (x, y, z)
+
+uncurry3 :: (a -> b -> c -> d) -> (a, b, c) -> d
+uncurry3 f (x, y, z) = f x y z
+
+curry4 :: ((a, b, c, d) -> e) -> a -> b -> c -> d -> e
+curry4 f w x y z = f (w, x, y, z)
+
+uncurry4 :: (a -> b -> c -> d -> e) -> (a, b, c, d) -> e
+uncurry4 f (w, x, y, z) = f w x y z
+
+makeCache :: MVar (M.Map a b)
+makeCache = unsafePerformIO $ do
+  v <- newMVar M.empty
+  return v
+{-# NOINLINE makeCache #-}
+
+memo :: (Ord a, Show a) => MVar (M.Map a b) -> (a -> b) -> a -> b
+memo cache f x = unsafePerformIO $ do
+    m <- readMVar cache
+    case M.lookup x m of
+      Nothing -> do
+        let  r = f x
+        modifyMVar_ cache (return . M.insert x r)
+        traceM [qm| k={x}  size={M.size m}|]
+        return r
+      Just r  -> return r
+
+memo2 :: (Ord a, Ord b, Show a, Show b) => MVar (M.Map (a, b) c) -> (a -> b -> c) -> a -> b -> c
+memo2 cache = curry2 . memo cache . uncurry2
+
+memo3 :: (Ord a, Ord b, Ord c, Show a, Show b, Show c) =>
+     MVar (M.Map (a, b, c) d) -> (a -> b -> c -> d) -> a -> b -> c -> d
+memo3 cache = curry3 . memo cache . uncurry3
+
+memo4
+  :: (Ord a, Ord b, Ord c, Ord d, Show a, Show b, Show c, Show d) =>
+     MVar (M.Map (a, b, c, d) e)
+     -> (a -> b -> c -> d -> e) -> a -> b -> c -> d -> e
+memo4 cache = curry4 . memo cache . uncurry4
 
 -----------------------------------
 -- (taken from uglymemo-0.1.0.1) --
 
--- | Memoize the given function by allocating a memo table,
--- and then updating the memo table on each function call.
-memoIO :: (Ord a, Show a)
-       => (a -> b)           -- ^Function to memoize
-       -> IO (a -> IO b)
-memoIO f = do
-    v <- newMVar M.empty
-    let f' x = do
-            m <- readMVar v
-            case M.lookup x m of
-                Nothing -> do 
-                  let  r = f x
-                  modifyMVar_ v (return . M.insert x r)
-                  traceM [qm| k={x}  size={M.size m}|]
-                  return r
-                Just r  -> return r
-    return f'
-
--- | The pure version of 'memoIO'.
-memo :: (Ord a, Show a)
-     => (a -> b)  -- ^Function to memoize
-     -> (a -> b)
-memo f = 
-  let f' = unsafePerformIO (memoIO f) 
-   in \x -> unsafePerformIO (f' x)
+---- | Memoize the given function by allocating a memo table,
+---- and then updating the memo table on each function call.
+--memoIO :: (Ord a, Show a)
+--       => (a -> b)           -- ^Function to memoize
+--       -> IO (a -> IO b)
+--memoIO f = do
+--    v <- newMVar M.empty
+--    let f' x = do
+--            m <- readMVar v
+--            case M.lookup x m of
+--                Nothing -> do
+--                  let  r = f x
+--                  modifyMVar_ v (return . M.insert x r)
+--                  traceM [qm| k={x}  size={M.size m}|]
+--                  return r
+--                Just r  -> return r
+--    return f'
+--
+---- | The pure version of 'memoIO'.
+--memo :: (Ord a, Show a)
+--     => (a -> b)  -- ^Function to memoize
+--     -> (a -> b)
+--memo f =
+--  let f' = unsafePerformIO (memoIO f)
+--   in \x -> unsafePerformIO (f' x)
