@@ -9,6 +9,7 @@
 {-# LANGUAGE Strict                #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UnboxedTuples         #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Lib where
 
@@ -64,13 +65,32 @@ data Alg m p where
     stopCond :: p -> m Bool
   } -> Alg m p
 
-buildAlg :: forall m . MonadState Integer m => Point -> m (Alg m Point)
+data Context m = 
+  Context
+    { state :: Integer
+    , cache :: M.Map Point (Alg m Point)
+    }
+
+algorithm :: forall m p . (Monad m, Show p) => Alg m p -> p -> m [p]
+algorithm alg start = go start []
+  where
+    go :: p -> [p] -> m [p]
+    go p1 xs = do
+      stop <- stopCond alg p1
+      if stop then return xs
+      else do
+        dir <- select alg
+        p2 <- step alg dir p1
+        traceM $ show p2
+        go p2 (p2:xs)
+
+buildAlg :: forall m . MonadState (Context m) m => Point -> m (Alg m Point)
 buildAlg dst = return $ Alg { select = select, step = step, stopCond = stopCond }
   where
     select :: m Direction
     select = do
-      modify $ \n -> if even n then n `div` 2 else n * 3 + 1
-      state <- get
+      modify $ \(Context n hm) -> Context (if even n then n `div` 2 else n * 3 + 1) hm
+      (Context state hm) <- get
       return $ toEnum $ fromIntegral state `mod` 4
 
     stepMemo = makeMemo
@@ -87,23 +107,11 @@ buildAlg dst = return $ Alg { select = select, step = step, stopCond = stopCond 
     stopCond :: Point -> m Bool
     stopCond p = return $ dst == p
 
-algorithm :: forall m p . (Monad m, Show p) => Alg m p -> p -> m [p]
-algorithm alg start = go start []
-  where
-    go :: p -> [p] -> m [p]
-    go p1 xs = do
-      stop <- stopCond alg p1
-      if stop then return xs
-      else do
-        dir <- select alg
-        p2 <- step alg dir p1
-        traceM $ show p2
-        go p2 (p2:xs)
 
 testAlg :: IO ()
 testAlg = do
-  let state = 13
-  path <- flip evalStateT state $ do
+  let ctx = Context 13 M.empty
+  path <- flip evalStateT ctx $ do
         alg <- buildAlg (Point 0 0)
         algorithm alg (Point 2 2)
   putStrLn $ "path = " <> show path
