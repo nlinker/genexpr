@@ -22,7 +22,7 @@ import Control.Monad.ST                (ST, runST)
 import Control.Monad.ST.Trans          (runSTT)
 import Control.Monad.ST.Trans.Internal (STT(..), STTRet(..), liftST)
 import Control.Monad.State.Strict      (MonadState, State, evalStateT, get, lift, modify, put,
-                                        runState, runStateT)
+                                        runState, runStateT, MonadState)
 import Control.Monad.State.Strict      (StateT)
 import Data.Char                       (ord)
 import Data.Coerce                     (coerce)
@@ -84,9 +84,9 @@ transExample str = do
   let ctx = Context 0
   runState proc ctx
   where
-    proc :: StateT Context Identity Integer
+    proc :: MonadState Context m => m Integer
     proc = do
-      x <- lift $ runST $ do
+      x <- return $ runST $ do
         ref <- newSTRef 0
         forM_ str $ \c -> do
           modifySTRef' ref (+1)
