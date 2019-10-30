@@ -42,7 +42,8 @@ dependencies:
   - impure-containers
   - primitive
   - qm-interpolated-string
+  - lens
   - mtl
   - containers
-
+  - text
 

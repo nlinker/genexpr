@@ -5,6 +5,7 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE QuasiQuotes           #-}
+{-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE Strict                #-}
@@ -13,6 +14,7 @@
 
 module Lib where
 
+import Control.Lens.TH                 (makeLenses)
 import Control.Concurrent.MVar         (MVar, modifyMVar_, newMVar, readMVar)
 import Control.Monad                   (filterM, forM_, when)
 import Control.Monad.Identity          (Identity, runIdentity)
@@ -37,15 +39,10 @@ import Text.InterpolatedString.QM      (qm)
 import qualified Data.HashMap.Mutable.Basic as HM
 import qualified Data.Heap.Mutable.ModelD   as HPM
 import qualified Data.Map                   as M
+import qualified Data.Text                  as T
 import           Debug.Trace
-
-instance (Monad m) => PrimMonad (STT s m) where
-  type PrimState (STT s m) = s
-  primitive f =
-    STT $ \s ->
-      case f s of
-        (# t, a #) -> return (STTRet t a)
-  {-# INLINE primitive #-}
+import Control.Lens.Lens ((&))
+import Control.Lens ((.~), (^.), (.=))
 
 data Direction
   = U
@@ -71,18 +68,38 @@ data Alg m p where
     stopCond :: p -> m Bool
   } -> Alg m p
 
+data AppState =
+  AppState
+    { _field :: [Point]
+    , _index :: Int
+    , _name  :: T.Text 
+    } 
+    deriving (Eq, Show)
+
 data Context =
   Context
-    { state :: Integer
-    -- , cache :: M.Map Point (Alg m Point)
+    { _appState :: AppState
+    , _ctxState :: Integer
     }
     deriving (Eq, Show)
 
+makeLenses ''AppState
+makeLenses ''Context
+
+instance (Monad m) => PrimMonad (STT s m) where
+  type PrimState (STT s m) = s
+  primitive f =
+    STT $ \s ->
+      case f s of
+        (# t, a #) -> return (STTRet t a)
+  {-# INLINE primitive #-}
+
 -- State monad on top of ST monad
-transExample :: String -> (Integer, Context)
+transExample :: MonadState AppState m => String -> m (Integer, Context)
 transExample str = do
-  let ctx = Context 0
-  runState proc ctx
+  app <- get
+  let ctx = Context app 0
+  runStateT proc ctx
   where
     proc :: MonadState Context m => m Integer
     proc = do
@@ -91,7 +108,7 @@ transExample str = do
         forM_ str $ \c -> do
           modifySTRef' ref (+1)
         readSTRef ref
-      put $ Context x
+      ctxState .= x
       return x
 
 -- StateT Context m a
@@ -113,9 +130,9 @@ buildAlg dst = return $ Alg { select = select, step = step, stopCond = stopCond 
   where
     select :: m Direction
     select = do
-      modify $ \(Context n) -> Context (if even n then n `div` 2 else n * 3 + 1)
-      (Context state) <- get
-      return $ toEnum $ fromIntegral state `mod` 4
+      modify $ \ctx -> let n = ctx ^. ctxState in ctx & ctxState .~ (if even n then n `div` 2 else n * 3 + 1)
+      ctx <- get
+      return $ toEnum $ fromIntegral (ctx ^. ctxState) `mod` 4
 
     stepMemo = makeMemo
     step :: Direction -> Point -> m Point
@@ -134,7 +151,8 @@ buildAlg dst = return $ Alg { select = select, step = step, stopCond = stopCond 
 
 testAlg :: IO ()
 testAlg = do
-  let ctx = Context 13
+  let appState = AppState [] 0 "test" 
+  let ctx = Context appState 13
   path <- flip evalStateT ctx $ do
         alg <- buildAlg (Point 0 0)
         algorithm alg (Point 2 2)
