@@ -20,13 +20,18 @@ import Control.Monad.Primitive         (PrimMonad, PrimState, primitive)
 import Control.Monad.ST                (ST, runST)
 import Control.Monad.ST.Trans          (runSTT)
 import Control.Monad.ST.Trans.Internal (STT(..), STTRet(..), liftST)
-import Control.Monad.State             (MonadState, evalStateT, get, lift, modify, put)
+import Control.Monad.State.Strict      (MonadState, evalStateT, get, lift, modify, put, runStateT, runState)
 import Data.Coerce                     (coerce)
 import Data.Hashable                   (Hashable)
 import Data.Maybe                      (fromMaybe, isJust)
+import Data.STRef                      (modifySTRef)
 import GHC.Generics                    (Generic)
 import System.IO.Unsafe                (unsafePerformIO)
 import Text.InterpolatedString.QM      (qm)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.State.Strict (StateT)
+import Data.Char (ord)
+import Data.STRef.Strict (STRef, newSTRef, readSTRef, modifySTRef')
 
 import qualified Data.HashMap.Mutable.Basic as HM
 import qualified Data.Heap.Mutable.ModelD   as HPM
@@ -65,13 +70,28 @@ data Alg m p where
     stopCond :: p -> m Bool
   } -> Alg m p
 
-data Context m = 
+data Context = 
   Context
     { state :: Integer
-    , cache :: M.Map Point (Alg m Point)
+    -- , cache :: M.Map Point (Alg m Point)
     }
+    deriving (Eq, Show)
 
-algorithm :: forall m p . (Monad m, Show p) => Alg m p -> p -> m [p]
+-- State monad on top of ST monad
+transExample :: String -> (Integer, Context)
+transExample str = do 
+  let ctx = Context 0
+  flip runState ctx $ do
+    x <- lift $ runST $ do
+      ref <- newSTRef 0
+      forM_ str $ \c -> do
+        modifySTRef' ref (+1)     
+      readSTRef ref
+    put $ Context x
+    return x
+         
+-- StateT Context m a
+algorithm :: forall m p . (MonadState Context m, Show p) => Alg m p -> p -> m [p]
 algorithm alg start = go start []
   where
     go :: p -> [p] -> m [p]
@@ -84,13 +104,13 @@ algorithm alg start = go start []
         traceM $ show p2
         go p2 (p2:xs)
 
-buildAlg :: forall m . MonadState (Context m) m => Point -> m (Alg m Point)
+buildAlg :: forall m . MonadState Context m => Point -> m (Alg m Point)
 buildAlg dst = return $ Alg { select = select, step = step, stopCond = stopCond }
   where
     select :: m Direction
     select = do
-      modify $ \(Context n hm) -> Context (if even n then n `div` 2 else n * 3 + 1) hm
-      (Context state hm) <- get
+      modify $ \(Context n) -> Context (if even n then n `div` 2 else n * 3 + 1)
+      (Context state) <- get
       return $ toEnum $ fromIntegral state `mod` 4
 
     stepMemo = makeMemo
@@ -110,7 +130,7 @@ buildAlg dst = return $ Alg { select = select, step = step, stopCond = stopCond 
 
 testAlg :: IO ()
 testAlg = do
-  let ctx = Context 13 M.empty
+  let ctx = Context 13
   path <- flip evalStateT ctx $ do
         alg <- buildAlg (Point 0 0)
         algorithm alg (Point 2 2)
@@ -164,32 +184,3 @@ memo4
      MVar (M.Map (a, b, c, d) e)
      -> (a -> b -> c -> d -> e) -> a -> b -> c -> d -> e
 memo4 cache = curry4 . memo cache . uncurry4
-
------------------------------------
--- (taken from uglymemo-0.1.0.1) --
-
----- | Memoize the given function by allocating a memo table,
----- and then updating the memo table on each function call.
---memoIO :: (Ord a, Show a)
---       => (a -> b)           -- ^Function to memoize
---       -> IO (a -> IO b)
---memoIO f = do
---    v <- newMVar M.empty
---    let f' x = do
---            m <- readMVar v
---            case M.lookup x m of
---                Nothing -> do
---                  let  r = f x
---                  modifyMVar_ v (return . M.insert x r)
---                  traceM [qm| k={x}  size={M.size m}|]
---                  return r
---                Just r  -> return r
---    return f'
---
----- | The pure version of 'memoIO'.
---memo :: (Ord a, Show a)
---     => (a -> b)  -- ^Function to memoize
---     -> (a -> b)
---memo f =
---  let f' = unsafePerformIO (memoIO f)
---   in \x -> unsafePerformIO (f' x)
