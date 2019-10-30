@@ -5,33 +5,34 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE QuasiQuotes           #-}
+{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE Strict                #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UnboxedTuples         #-}
-{-# LANGUAGE RecordWildCards #-}
 
 module Lib where
 
 import Control.Concurrent.MVar         (MVar, modifyMVar_, newMVar, readMVar)
 import Control.Monad                   (filterM, forM_, when)
-import Control.Monad.Identity          (runIdentity)
+import Control.Monad.Identity          (Identity, runIdentity)
+import Control.Monad.IO.Class          (liftIO)
 import Control.Monad.Primitive         (PrimMonad, PrimState, primitive)
 import Control.Monad.ST                (ST, runST)
 import Control.Monad.ST.Trans          (runSTT)
 import Control.Monad.ST.Trans.Internal (STT(..), STTRet(..), liftST)
-import Control.Monad.State.Strict      (MonadState, evalStateT, get, lift, modify, put, runStateT, runState)
+import Control.Monad.State.Strict      (MonadState, State, evalStateT, get, lift, modify, put,
+                                        runState, runStateT)
+import Control.Monad.State.Strict      (StateT)
+import Data.Char                       (ord)
 import Data.Coerce                     (coerce)
 import Data.Hashable                   (Hashable)
 import Data.Maybe                      (fromMaybe, isJust)
 import Data.STRef                      (modifySTRef)
+import Data.STRef.Strict               (STRef, modifySTRef', newSTRef, readSTRef)
 import GHC.Generics                    (Generic)
 import System.IO.Unsafe                (unsafePerformIO)
 import Text.InterpolatedString.QM      (qm)
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.State.Strict (StateT)
-import Data.Char (ord)
-import Data.STRef.Strict (STRef, newSTRef, readSTRef, modifySTRef')
 
 import qualified Data.HashMap.Mutable.Basic as HM
 import qualified Data.Heap.Mutable.ModelD   as HPM
@@ -70,7 +71,7 @@ data Alg m p where
     stopCond :: p -> m Bool
   } -> Alg m p
 
-data Context = 
+data Context =
   Context
     { state :: Integer
     -- , cache :: M.Map Point (Alg m Point)
@@ -79,17 +80,20 @@ data Context =
 
 -- State monad on top of ST monad
 transExample :: String -> (Integer, Context)
-transExample str = do 
+transExample str = do
   let ctx = Context 0
-  flip runState ctx $ do
-    x <- lift $ runST $ do
-      ref <- newSTRef 0
-      forM_ str $ \c -> do
-        modifySTRef' ref (+1)     
-      readSTRef ref
-    put $ Context x
-    return x
-         
+  runState proc ctx
+  where
+    proc :: StateT Context Identity Integer
+    proc = do
+      x <- lift $ runST $ do
+        ref <- newSTRef 0
+        forM_ str $ \c -> do
+          modifySTRef' ref (+1)
+        readSTRef ref
+      put $ Context x
+      return x
+
 -- StateT Context m a
 algorithm :: forall m p . (MonadState Context m, Show p) => Alg m p -> p -> m [p]
 algorithm alg start = go start []
