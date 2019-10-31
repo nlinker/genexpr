@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE QuasiQuotes           #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE RecordWildCards       #-}
@@ -14,40 +15,41 @@
 
 module Lib where
 
-import Control.Lens.TH                 (makeLenses)
+import Control.Arrow                   (first)
 import Control.Concurrent.MVar         (MVar, modifyMVar_, newMVar, readMVar)
+import Control.Lens                    (use, (%=), (.=), (.~), (^.))
+import Control.Lens.Lens               ((&))
+import Control.Lens.TH                 (makeLenses)
 import Control.Monad                   (filterM, forM_, when)
 import Control.Monad.Identity          (Identity, runIdentity)
-import Control.Monad.IO.Class          (liftIO, MonadIO)
+import Control.Monad.IO.Class          (MonadIO, liftIO)
 import Control.Monad.Primitive         (PrimMonad, PrimState, primitive)
 import Control.Monad.ST                (ST, runST)
 import Control.Monad.ST.Trans          (runSTT)
 import Control.Monad.ST.Trans.Internal (STT(..), STTRet(..), liftST)
-import Control.Monad.State.Strict      (MonadState, State, evalStateT, get, lift, modify, put,
-                                        runState, runStateT, MonadState, execStateT)
+import Control.Monad.State.Strict      (MonadState, MonadState, State, evalStateT, execStateT, get,
+                                        lift, modify, put, runState, runStateT)
 import Control.Monad.State.Strict      (StateT)
 import Data.Char                       (ord)
 import Data.Coerce                     (coerce)
 import Data.Hashable                   (Hashable)
 import Data.Maybe                      (fromMaybe, isJust)
+import Data.StateRef                   (newRef)
 import Data.STRef                      (modifySTRef)
 import Data.STRef.Strict               (STRef, modifySTRef', newSTRef, readSTRef)
+import Foreign.C                       (CInt)
 import GHC.Generics                    (Generic)
+import ImpureContainers.PrimRef        (newAlignedPinned, newPinned)
 import System.IO.Unsafe                (unsafePerformIO)
-import Text.InterpolatedString.QM      (qm)
 import System.Random.Xorshift128Plus   (Gen(..), initialize, next)
-import Control.Lens.Lens ((&))
-import Control.Lens ((.~), (^.), (.=), (%=), use)
-import Data.StateRef (newRef)
-import ImpureContainers.PrimRef (newAlignedPinned, newPinned)
-import Foreign.C (CInt)
-import Control.Arrow (first)
+import Text.InterpolatedString.QM      (qm)
 
 import qualified Data.HashMap.Mutable.Basic as HM
 import qualified Data.Heap.Mutable.ModelD   as HPM
 import qualified Data.Map                   as M
 import qualified Data.Text                  as T
-import           Debug.Trace
+
+import Debug.Trace
 
 data Direction
   = U
@@ -92,22 +94,25 @@ makeLenses ''Context
 
 testAlg :: IO ()
 testAlg = do
-  let appState0 = AppState (initialize 123) "test"
+  let rngState = initialize 3
+  let appState0 = AppState rngState "test"
   appState1 <- flip execStateT appState0 $ primTransExample (Point 1 1) (Point 0 0)
-  putStrLn $ "appState = " <> show appState1
+  putStrLn $ "message = " <> show (appState1 ^. msg)
 
 primTransExample :: MonadState AppState m => Point -> Point -> m ()
 primTransExample src dst = do
   app <- get
-  let ctx = Context app 0
-  let ret = runST (primProc ctx)
-  msg .= T.pack (show ret)
+  let ctx0 = Context app 0
+  traceM [qm| cxt before = {ctx0} |]
+  let ctx1 = runST (primProc ctx0)
+  traceM [qm| cxt after = {ctx1} |]
+  put $ ctx1 ^. appState
   where
-    primProc :: PrimMonad m => Context -> m (T.Text, Context)
-    primProc ctx = flip runStateT ctx $ do --flip runStateT ctx $ do
+    primProc :: PrimMonad m => Context -> m Context
+    primProc ctx = flip execStateT ctx $ do --flip runStateT ctx $ do
       alg <- primBuildAlg dst
       path <- primAlgorithm alg src
-      return $ T.pack $ show path
+      appState . msg .= T.pack ("steps count = " <> show (length path) <> ", path = " <> show path)
 
 -- MonadState Context m
 primAlgorithm :: forall m p . (PrimMonad m, Show p) => Alg (StateT Context m) p -> p -> StateT Context m [p]
@@ -120,7 +125,6 @@ primAlgorithm alg start = go start []
       else do
         dir <- select alg
         p2 <- step alg dir p1
-        traceM $ show p2
         go p2 (p2:xs)
 
 -- primAlgorithm :: forall m p . (PrimMonad m, Show p) => Alg (StateT Context m) p -> p -> StateT Context m [p]
@@ -167,7 +171,7 @@ algorithm alg start = go start []
         traceM $ show p2
         go p2 (p2:xs)
 
--- ST monad on top of State monad 
+-- ST monad on top of State monad
 transExample :: MonadState AppState m => String -> m (Integer, Context)
 transExample str = do
   app <- get
