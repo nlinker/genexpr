@@ -24,7 +24,7 @@ import Control.Monad.ST                (ST, runST)
 import Control.Monad.ST.Trans          (runSTT)
 import Control.Monad.ST.Trans.Internal (STT(..), STTRet(..), liftST)
 import Control.Monad.State.Strict      (MonadState, State, evalStateT, get, lift, modify, put,
-                                        runState, runStateT, MonadState)
+                                        runState, runStateT, MonadState, execStateT)
 import Control.Monad.State.Strict      (StateT)
 import Data.Char                       (ord)
 import Data.Coerce                     (coerce)
@@ -35,18 +35,19 @@ import Data.STRef.Strict               (STRef, modifySTRef', newSTRef, readSTRef
 import GHC.Generics                    (Generic)
 import System.IO.Unsafe                (unsafePerformIO)
 import Text.InterpolatedString.QM      (qm)
+import System.Random.Xorshift128Plus   (Gen(..), initialize, next)
+import Control.Lens.Lens ((&))
+import Control.Lens ((.~), (^.), (.=), (%=), use)
+import Data.StateRef (newRef)
+import ImpureContainers.PrimRef (newAlignedPinned, newPinned)
+import Foreign.C (CInt)
+import Control.Arrow (first)
 
 import qualified Data.HashMap.Mutable.Basic as HM
 import qualified Data.Heap.Mutable.ModelD   as HPM
 import qualified Data.Map                   as M
 import qualified Data.Text                  as T
 import           Debug.Trace
-import Control.Lens.Lens ((&))
-import Control.Lens ((.~), (^.), (.=), (%=))
-import Data.StateRef (newRef)
-import ImpureContainers.PrimRef (newAlignedPinned, newPinned)
-import Foreign.C (CInt)
-import Control.Arrow (first)
 
 data Direction
   = U
@@ -74,9 +75,8 @@ data Alg m p where
 
 data AppState =
   AppState
-    { _field :: [Point]
-    , _index :: Int
-    , _msg  :: T.Text
+    { _gen :: Gen
+    , _msg :: T.Text
     }
     deriving (Eq, Show)
 
@@ -91,16 +91,13 @@ makeLenses ''AppState
 makeLenses ''Context
 
 testAlg :: IO ()
-testAlg = undefined -- do
---  let appState = AppState [] 0 "test"
---  let ctx = Context appState 13
---  path <- flip evalStateT ctx $ do
---        alg <- buildAlg (Point 0 0)
---        algorithm alg (Point 2 2)
---  putStrLn $ "path = " <> show path
+testAlg = do
+  let appState0 = AppState (initialize 123) "test"
+  appState1 <- flip execStateT appState0 $ primTransExample (Point 1 1) (Point 0 0)
+  putStrLn $ "appState = " <> show appState1
 
-primTransExample :: MonadState AppState m => String -> m ()
-primTransExample str = do
+primTransExample :: MonadState AppState m => Point -> Point -> m ()
+primTransExample src dst = do
   app <- get
   let ctx = Context app 0
   let ret = runST (primProc ctx)
@@ -108,39 +105,9 @@ primTransExample str = do
   where
     primProc :: PrimMonad m => Context -> m (T.Text, Context)
     primProc ctx = flip runStateT ctx $ do --flip runStateT ctx $ do
-      alg <- primBuildAlg (Point 0 0)
-      path <- primAlgorithm alg (Point 1 1)
+      alg <- primBuildAlg dst
+      path <- primAlgorithm alg src
       return $ T.pack $ show path
-
--- primAlgorithm :: forall m p . (PrimMonad m, Show p) => Alg (StateT Context m) p -> p -> StateT Context m [p]
-primBuildAlg :: forall m . PrimMonad m => Point -> StateT Context m (Alg (StateT Context m) Point)
-primBuildAlg dst = do
-    -- flip runStateT ctx $ do
-      -- undefined :: StateT Context m (Alg m Point)
-      let select1 = select
-      let step1 = step
-      let stopCond1 = stopCond
-      return $ Alg { select = select1, step = step1, stopCond = stopCond1 }
-  where
-    select :: PrimMonad m => StateT Context m Direction
-    select = do
-      ref <- lift $ newPinned (0 :: CInt)
-      modify $ \ctx -> let n = ctx ^. ctxState in ctx & ctxState .~ (if even n then n `div` 2 else n * 3 + 1)
-      ctx <- get
-      return $ toEnum $ fromIntegral (ctx ^. ctxState) `mod` 4
-
-    step :: PrimMonad m => Direction -> Point -> StateT Context m Point
-    step d p = return $ go d p
-      where
-        go d (Point i j) =
-          case d of
-            U -> Point (i - 1) (j)
-            D -> Point (i + 1) (j)
-            L -> Point (i) (j - 1)
-            R -> Point (i) (j + 1)
-
-    stopCond :: PrimMonad m => Point -> StateT Context m Bool
-    stopCond p = return $ dst == p
 
 -- MonadState Context m
 primAlgorithm :: forall m p . (PrimMonad m, Show p) => Alg (StateT Context m) p -> p -> StateT Context m [p]
@@ -155,6 +122,36 @@ primAlgorithm alg start = go start []
         p2 <- step alg dir p1
         traceM $ show p2
         go p2 (p2:xs)
+
+-- primAlgorithm :: forall m p . (PrimMonad m, Show p) => Alg (StateT Context m) p -> p -> StateT Context m [p]
+primBuildAlg :: forall m . PrimMonad m => Point -> StateT Context m (Alg (StateT Context m) Point)
+primBuildAlg dst = do
+    -- flip runStateT ctx $ do
+      -- undefined :: StateT Context m (Alg m Point)
+      let select1 = select
+      let step1 = step
+      let stopCond1 = stopCond
+      return $ Alg { select = select1, step = step1, stopCond = stopCond1 }
+  where
+    select :: PrimMonad m => StateT Context m Direction
+    select = do
+      g0 <- use (appState . gen)
+      let (r, g1) = next g0
+      appState . gen .= g1
+      return $ toEnum $ fromIntegral r `mod` 4
+
+    step :: PrimMonad m => Direction -> Point -> StateT Context m Point
+    step d p = return $ go d p
+      where
+        go d (Point i j) =
+          case d of
+            U -> Point (i - 1) (j)
+            D -> Point (i + 1) (j)
+            L -> Point (i) (j - 1)
+            R -> Point (i) (j + 1)
+
+    stopCond :: PrimMonad m => Point -> StateT Context m Bool
+    stopCond p = return $ dst == p
 
 -- StateT Context m a
 algorithm :: forall m p . (MonadState Context m, Show p) => Alg m p -> p -> m [p]
@@ -197,51 +194,3 @@ transExample str = do
 --      case f s of
 --        (# t, a #) -> return (STTRet t a)
 --  {-# INLINE primitive #-}
-
-curry2 :: ((a, b) -> c) -> a -> b -> c
-curry2 f x y = f (x, y)
-
-uncurry2 :: (a -> b -> c) -> (a, b) -> c
-uncurry2 f (x, y) = f x y
-
-curry3 :: ((a, b, c) -> d) -> a -> b -> c -> d
-curry3 f x y z = f (x, y, z)
-
-uncurry3 :: (a -> b -> c -> d) -> (a, b, c) -> d
-uncurry3 f (x, y, z) = f x y z
-
-curry4 :: ((a, b, c, d) -> e) -> a -> b -> c -> d -> e
-curry4 f w x y z = f (w, x, y, z)
-
-uncurry4 :: (a -> b -> c -> d -> e) -> (a, b, c, d) -> e
-uncurry4 f (w, x, y, z) = f w x y z
-
-makeMemo :: MVar (M.Map a b)
-makeMemo = unsafePerformIO $ do
-  v <- newMVar M.empty
-  return v
-{-# NOINLINE makeMemo #-}
-
-memo :: (Ord a, Show a) => MVar (M.Map a b) -> (a -> b) -> a -> b
-memo cache f x = unsafePerformIO $ do
-    m <- readMVar cache
-    case M.lookup x m of
-      Nothing -> do
-        let  r = f x
-        modifyMVar_ cache (return . M.insert x r)
-        traceM [qm| k={x}  size={M.size m}|]
-        return r
-      Just r  -> return r
-
-memo2 :: (Ord a, Ord b, Show a, Show b) => MVar (M.Map (a, b) c) -> (a -> b -> c) -> a -> b -> c
-memo2 cache = curry2 . memo cache . uncurry2
-
-memo3 :: (Ord a, Ord b, Ord c, Show a, Show b, Show c) =>
-     MVar (M.Map (a, b, c) d) -> (a -> b -> c -> d) -> a -> b -> c -> d
-memo3 cache = curry3 . memo cache . uncurry3
-
-memo4
-  :: (Ord a, Ord b, Ord c, Ord d, Show a, Show b, Show c, Show d) =>
-     MVar (M.Map (a, b, c, d) e)
-     -> (a -> b -> c -> d -> e) -> a -> b -> c -> d -> e
-memo4 cache = curry4 . memo cache . uncurry4
