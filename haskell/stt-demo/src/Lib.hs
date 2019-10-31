@@ -90,32 +90,14 @@ data Context =
 makeLenses ''AppState
 makeLenses ''Context
 
-instance (Monad m) => PrimMonad (STT s m) where
-  type PrimState (STT s m) = s
-  primitive f =
-    STT $ \s ->
-      case f s of
-        (# t, a #) -> return (STTRet t a)
-  {-# INLINE primitive #-}
-
--- State monad on top of ST monad
-transExample :: MonadState AppState m => String -> m (Integer, Context)
-transExample str = do
-  app <- get
-  let ctx = Context app 0
-  runStateT proc ctx
-  where
-    proc :: MonadState Context m => m Integer
-    proc = do
-      ctx <- get
-      x <- return $ runST $ do
-        ref <- newSTRef 0
-        forM_ str $ \c -> do
-          -- undefined :: ST s ()
-          modifySTRef' ref (+1)
-        readSTRef ref
-      ctxState .= x
-      return x
+testAlg :: IO ()
+testAlg = undefined -- do
+--  let appState = AppState [] 0 "test"
+--  let ctx = Context appState 13
+--  path <- flip evalStateT ctx $ do
+--        alg <- buildAlg (Point 0 0)
+--        algorithm alg (Point 2 2)
+--  putStrLn $ "path = " <> show path
 
 primTransExample :: MonadState AppState m => String -> m ()
 primTransExample str = do
@@ -124,17 +106,17 @@ primTransExample str = do
   let ret = runST (primProc ctx)
   msg .= T.pack (show ret)
   where
-    primProc :: forall m . PrimMonad m => Context -> m (T.Text, Context)
-    primProc ctx = do --flip runStateT ctx $ do
-      alg <- primBuildAlg ctx (Point 0 0)
-      pair <- flip runStateT ctx $ primAlgorithm alg (Point 1 1)
-      return $ first (T.pack . show) pair   
+    primProc :: PrimMonad m => Context -> m (T.Text, Context)
+    primProc ctx = flip runStateT ctx $ do --flip runStateT ctx $ do
+      alg <- primBuildAlg (Point 0 0)
+      path <- primAlgorithm alg (Point 1 1)
+      return $ T.pack $ show path
 
--- (MonadState Context m)
-primBuildAlg :: forall m . PrimMonad m => Context -> Point -> m (Alg (StateT Context m) Point)
-primBuildAlg ctx dst = do
+-- primAlgorithm :: forall m p . (PrimMonad m, Show p) => Alg (StateT Context m) p -> p -> StateT Context m [p]
+primBuildAlg :: forall m . PrimMonad m => Point -> StateT Context m (Alg (StateT Context m) Point)
+primBuildAlg dst = do
     -- flip runStateT ctx $ do
-      -- undefined :: StateT Context m (Alg m Point) 
+      -- undefined :: StateT Context m (Alg m Point)
       let select1 = select
       let step1 = step
       let stopCond1 = stopCond
@@ -188,15 +170,33 @@ algorithm alg start = go start []
         traceM $ show p2
         go p2 (p2:xs)
 
-testAlg :: IO ()
-testAlg = undefined -- do
---  let appState = AppState [] 0 "test"
---  let ctx = Context appState 13
---  path <- flip evalStateT ctx $ do
---        alg <- buildAlg (Point 0 0)
---        algorithm alg (Point 2 2)
---  putStrLn $ "path = " <> show path
+-- ST monad on top of State monad 
+transExample :: MonadState AppState m => String -> m (Integer, Context)
+transExample str = do
+  app <- get
+  let ctx = Context app 0
+  runStateT proc ctx
+  where
+    proc :: MonadState Context m => m Integer
+    proc = do
+      ctx <- get
+      x <- return $ runST $ do
+        ref <- newSTRef 0
+        forM_ str $ \c -> do
+          -- undefined :: ST s ()
+          modifySTRef' ref (+1)
+        readSTRef ref
+      ctxState .= x
+      return x
 
+-- for runSTT working
+--instance (Monad m) => PrimMonad (STT s m) where
+--  type PrimState (STT s m) = s
+--  primitive f =
+--    STT $ \s ->
+--      case f s of
+--        (# t, a #) -> return (STTRet t a)
+--  {-# INLINE primitive #-}
 
 curry2 :: ((a, b) -> c) -> a -> b -> c
 curry2 f x y = f (x, y)

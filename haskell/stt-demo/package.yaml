@@ -47,3 +47,4 @@ dependencies:
   - containers
   - text
   - stateref
+  - Xorshift128Plus

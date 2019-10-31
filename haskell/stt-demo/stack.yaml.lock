@@ -18,6 +18,13 @@ packages:
       sha256: 60c7ae0e1d9efb768ed969eda689adef56385712403e97ac2440ff7410216234
   original:
     hackage: STMonadTrans-0.4.4
+- completed:
+    hackage: Xorshift128Plus-0.1.0.1@sha256:1796b2e442c0273660ee3691023cdbfdf8eb9bd53d0055f2143c780fbfd6f9f8,1555
+    pantry-tree:
+      size: 232
+      sha256: 0fef8e8529a27c5aed59badc9f5fb3a078d7fc44626941cd3e3142cd6462bb76
+  original:
+    hackage: Xorshift128Plus-0.1.0.1
 snapshots:
 - completed:
     size: 524786

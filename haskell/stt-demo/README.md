@@ -26,3 +26,6 @@ buildAlg dst = return $ Alg { ... }
     stopCond :: Point -> m Bool
     stopCond p = return $ dst == p
 ``` 
+
+Profiling can be done according to
+https://stackoverflow.com/questions/32123475/profiling-builds-with-stack
