@@ -18,7 +18,7 @@ import Control.Lens.TH                 (makeLenses)
 import Control.Concurrent.MVar         (MVar, modifyMVar_, newMVar, readMVar)
 import Control.Monad                   (filterM, forM_, when)
 import Control.Monad.Identity          (Identity, runIdentity)
-import Control.Monad.IO.Class          (liftIO)
+import Control.Monad.IO.Class          (liftIO, MonadIO)
 import Control.Monad.Primitive         (PrimMonad, PrimState, primitive)
 import Control.Monad.ST                (ST, runST)
 import Control.Monad.ST.Trans          (runSTT)
@@ -42,7 +42,11 @@ import qualified Data.Map                   as M
 import qualified Data.Text                  as T
 import           Debug.Trace
 import Control.Lens.Lens ((&))
-import Control.Lens ((.~), (^.), (.=))
+import Control.Lens ((.~), (^.), (.=), (%=))
+import Data.StateRef (newRef)
+import ImpureContainers.PrimRef (newAlignedPinned, newPinned)
+import Foreign.C (CInt)
+import Control.Arrow (first)
 
 data Direction
   = U
@@ -72,8 +76,8 @@ data AppState =
   AppState
     { _field :: [Point]
     , _index :: Int
-    , _name  :: T.Text 
-    } 
+    , _msg  :: T.Text
+    }
     deriving (Eq, Show)
 
 data Context =
@@ -103,13 +107,72 @@ transExample str = do
   where
     proc :: MonadState Context m => m Integer
     proc = do
+      ctx <- get
       x <- return $ runST $ do
         ref <- newSTRef 0
         forM_ str $ \c -> do
+          -- undefined :: ST s ()
           modifySTRef' ref (+1)
         readSTRef ref
       ctxState .= x
       return x
+
+primTransExample :: MonadState AppState m => String -> m ()
+primTransExample str = do
+  app <- get
+  let ctx = Context app 0
+  let ret = runST (primProc ctx)
+  msg .= T.pack (show ret)
+  where
+    primProc :: forall m . PrimMonad m => Context -> m (T.Text, Context)
+    primProc ctx = do --flip runStateT ctx $ do
+      alg <- primBuildAlg ctx (Point 0 0)
+      pair <- flip runStateT ctx $ primAlgorithm alg (Point 1 1)
+      return $ first (T.pack . show) pair   
+
+-- (MonadState Context m)
+primBuildAlg :: forall m . PrimMonad m => Context -> Point -> m (Alg (StateT Context m) Point)
+primBuildAlg ctx dst = do
+    -- flip runStateT ctx $ do
+      -- undefined :: StateT Context m (Alg m Point) 
+      let select1 = select
+      let step1 = step
+      let stopCond1 = stopCond
+      return $ Alg { select = select1, step = step1, stopCond = stopCond1 }
+  where
+    select :: PrimMonad m => StateT Context m Direction
+    select = do
+      ref <- lift $ newPinned (0 :: CInt)
+      modify $ \ctx -> let n = ctx ^. ctxState in ctx & ctxState .~ (if even n then n `div` 2 else n * 3 + 1)
+      ctx <- get
+      return $ toEnum $ fromIntegral (ctx ^. ctxState) `mod` 4
+
+    step :: PrimMonad m => Direction -> Point -> StateT Context m Point
+    step d p = return $ go d p
+      where
+        go d (Point i j) =
+          case d of
+            U -> Point (i - 1) (j)
+            D -> Point (i + 1) (j)
+            L -> Point (i) (j - 1)
+            R -> Point (i) (j + 1)
+
+    stopCond :: PrimMonad m => Point -> StateT Context m Bool
+    stopCond p = return $ dst == p
+
+-- MonadState Context m
+primAlgorithm :: forall m p . (PrimMonad m, Show p) => Alg (StateT Context m) p -> p -> StateT Context m [p]
+primAlgorithm alg start = go start []
+  where
+    go :: p -> [p] -> StateT Context m [p]
+    go p1 xs = do
+      stop <- stopCond alg p1
+      if stop then return xs
+      else do
+        dir <- select alg
+        p2 <- step alg dir p1
+        traceM $ show p2
+        go p2 (p2:xs)
 
 -- StateT Context m a
 algorithm :: forall m p . (MonadState Context m, Show p) => Alg m p -> p -> m [p]
@@ -125,38 +188,14 @@ algorithm alg start = go start []
         traceM $ show p2
         go p2 (p2:xs)
 
-buildAlg :: forall m . MonadState Context m => Point -> m (Alg m Point)
-buildAlg dst = return $ Alg { select = select, step = step, stopCond = stopCond }
-  where
-    select :: m Direction
-    select = do
-      modify $ \ctx -> let n = ctx ^. ctxState in ctx & ctxState .~ (if even n then n `div` 2 else n * 3 + 1)
-      ctx <- get
-      return $ toEnum $ fromIntegral (ctx ^. ctxState) `mod` 4
-
-    stepMemo = makeMemo
-    step :: Direction -> Point -> m Point
-    step d p = return $ memo2 stepMemo go d p
-      where
-        go d (Point i j) =
-          case d of
-            U -> Point (i - 1) (j)
-            D -> Point (i + 1) (j)
-            L -> Point (i) (j - 1)
-            R -> Point (i) (j + 1)
-
-    stopCond :: Point -> m Bool
-    stopCond p = return $ dst == p
-
-
 testAlg :: IO ()
-testAlg = do
-  let appState = AppState [] 0 "test" 
-  let ctx = Context appState 13
-  path <- flip evalStateT ctx $ do
-        alg <- buildAlg (Point 0 0)
-        algorithm alg (Point 2 2)
-  putStrLn $ "path = " <> show path
+testAlg = undefined -- do
+--  let appState = AppState [] 0 "test"
+--  let ctx = Context appState 13
+--  path <- flip evalStateT ctx $ do
+--        alg <- buildAlg (Point 0 0)
+--        algorithm alg (Point 2 2)
+--  putStrLn $ "path = " <> show path
 
 
 curry2 :: ((a, b) -> c) -> a -> b -> c
