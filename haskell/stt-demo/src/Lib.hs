@@ -101,24 +101,23 @@ testAlg = do
 
 primTransExample :: MonadState AppState m => Point -> Point -> m ()
 primTransExample src dst = do
-  app <- get
-  let ctx0 = Context app 0
-  traceM [qm| cxt before = {ctx0} |]
-  let ctx1 = runST (primProc ctx0)
-  traceM [qm| cxt after = {ctx1} |]
-  put $ ctx1 ^. appState
+  app1 <- get
+  traceM [qm| cxt before = {app1} |]
+  let app2 = runST (primProc app1)
+  traceM [qm| cxt after = {app2} |]
+  put $ app2
   where
-    primProc :: PrimMonad m => Context -> m Context
-    primProc ctx = flip execStateT ctx $ do --flip runStateT ctx $ do
+    primProc :: PrimMonad m => AppState -> m AppState
+    primProc ctx = flip execStateT ctx $ do
       alg <- primBuildAlg dst
       path <- primAlgorithm alg src
-      appState . msg .= T.pack ("steps count = " <> show (length path) <> ", path = " <> show path)
+      msg .= T.pack ("steps count = " <> show (length path) <> ", path = " <> show path)
 
 -- MonadState Context m
-primAlgorithm :: forall m p . (PrimMonad m, Show p) => Alg (StateT Context m) p -> p -> StateT Context m [p]
+primAlgorithm :: forall m p . (PrimMonad m, Show p) => Alg (StateT AppState m) p -> p -> StateT AppState m [p]
 primAlgorithm alg start = go start []
   where
-    go :: p -> [p] -> StateT Context m [p]
+    go :: p -> [p] -> StateT AppState m [p]
     go p1 xs = do
       stop <- stopCond alg p1
       if stop then return xs
@@ -127,24 +126,22 @@ primAlgorithm alg start = go start []
         p2 <- step alg dir p1
         go p2 (p2:xs)
 
--- primAlgorithm :: forall m p . (PrimMonad m, Show p) => Alg (StateT Context m) p -> p -> StateT Context m [p]
-primBuildAlg :: forall m . PrimMonad m => Point -> StateT Context m (Alg (StateT Context m) Point)
+primBuildAlg :: forall m . PrimMonad m => Point -> StateT AppState m (Alg (StateT AppState m) Point)
 primBuildAlg dst = do
     -- flip runStateT ctx $ do
-      -- undefined :: StateT Context m (Alg m Point)
       let select1 = select
       let step1 = step
       let stopCond1 = stopCond
       return $ Alg { select = select1, step = step1, stopCond = stopCond1 }
   where
-    select :: PrimMonad m => StateT Context m Direction
+    select :: PrimMonad m => StateT AppState m Direction
     select = do
-      g0 <- use (appState . gen)
+      g0 <- use gen
       let (r, g1) = next g0
-      appState . gen .= g1
+      gen .= g1
       return $ toEnum $ fromIntegral r `mod` 4
 
-    step :: PrimMonad m => Direction -> Point -> StateT Context m Point
+    step :: PrimMonad m => Direction -> Point -> StateT AppState m Point
     step d p = return $ go d p
       where
         go d (Point i j) =
@@ -154,7 +151,7 @@ primBuildAlg dst = do
             L -> Point (i) (j - 1)
             R -> Point (i) (j + 1)
 
-    stopCond :: PrimMonad m => Point -> StateT Context m Bool
+    stopCond :: PrimMonad m => Point -> StateT AppState m Bool
     stopCond p = return $ dst == p
 
 -- StateT Context m a
