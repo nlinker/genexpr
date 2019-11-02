@@ -56,7 +56,7 @@ data Direction
   | D
   | L
   | R
-  deriving (Eq, Ord, Enum, Show)
+  deriving (Eq, Ord, Generic, Hashable, Enum, Show)
 
 data Point =
   Point Int Int
@@ -82,12 +82,11 @@ data AppState =
     }
     deriving (Eq, Show)
 
-data Context =
+data Context m =
   Context
-    { _appState :: AppState
-    , _ctxState :: Integer
+    { _cache :: HM.MHashMap (PrimState m) (Direction, Point) Point 
     }
-    deriving (Eq, Show)
+    deriving (Show)
 
 makeLenses ''AppState
 makeLenses ''Context
@@ -107,17 +106,18 @@ primTransExample src dst = do
   traceM [qm| cxt after = {app2} |]
   put $ app2
   where
-    primProc :: PrimMonad m => AppState -> m AppState
-    primProc ctx = flip execStateT ctx $ do
-      alg <- primBuildAlg dst
-      path <- primAlgorithm alg src
-      msg .= T.pack ("steps count = " <> show (length path) <> ", path = " <> show path)
+    primProc :: forall m . PrimMonad m => AppState -> m AppState
+    primProc app = do
+      hm <- HM.new
+      ctx <- return $ Context hm 
+      alg <- primBuildAlg ctx dst
+      path <- flip evalStateT app $ primAlgorithm alg src
+      return $ app & msg .~ T.pack ("steps count = " <> show (length path) <> ", path = " <> show path)
 
--- MonadState Context m
-primAlgorithm :: forall m p . (PrimMonad m, Show p) => Alg (StateT AppState m) p -> p -> StateT AppState m [p]
+primAlgorithm :: forall m p . (PrimMonad m, Show p) => Alg m p -> p -> m [p]
 primAlgorithm alg start = go start []
   where
-    go :: p -> [p] -> StateT AppState m [p]
+    go :: p -> [p] -> m [p]
     go p1 xs = do
       stop <- stopCond alg p1
       if stop then return xs
@@ -126,13 +126,8 @@ primAlgorithm alg start = go start []
         p2 <- step alg dir p1
         go p2 (p2:xs)
 
-primBuildAlg :: forall m . PrimMonad m => Point -> StateT AppState m (Alg (StateT AppState m) Point)
-primBuildAlg dst = do
-    -- flip runStateT ctx $ do
-      let select1 = select
-      let step1 = step
-      let stopCond1 = stopCond
-      return $ Alg { select = select1, step = step1, stopCond = stopCond1 }
+primBuildAlg :: forall m . PrimMonad m => Context m -> Point -> m (Alg (StateT AppState m) Point)
+primBuildAlg ctx dst = return $ Alg { select = select, step = step, stopCond = stopCond }
   where
     select :: PrimMonad m => StateT AppState m Direction
     select = do
@@ -142,7 +137,19 @@ primBuildAlg dst = do
       return $ toEnum $ fromIntegral r `mod` 4
 
     step :: PrimMonad m => Direction -> Point -> StateT AppState m Point
-    step d p = return $ go d p
+    step d p = do
+        -- use cache
+        let hm = ctx ^. cache
+        p2' <- lift $ HM.lookup hm (d, p)
+        case p2' of
+          Nothing -> do
+            let p2 = go d p
+            lift $ HM.insert hm (d, p) p2
+            return p2
+          Just p2 -> do
+            size <- lift $ HM.foldM (\a k v -> return $ a + 1) 0 hm                      
+            traceM [qm| return cached {(d, p)} -> {p2}, now {size}  |]
+            return p2
       where
         go d (Point i j) =
           case d of
@@ -155,7 +162,7 @@ primBuildAlg dst = do
     stopCond p = return $ dst == p
 
 -- StateT Context m a
-algorithm :: forall m p . (MonadState Context m, Show p) => Alg m p -> p -> m [p]
+algorithm :: forall m p . (Monad m, Show p) => Alg m p -> p -> m [p]
 algorithm alg start = go start []
   where
     go :: p -> [p] -> m [p]
@@ -169,23 +176,23 @@ algorithm alg start = go start []
         go p2 (p2:xs)
 
 -- ST monad on top of State monad
-transExample :: MonadState AppState m => String -> m (Integer, Context)
-transExample str = do
-  app <- get
-  let ctx = Context app 0
-  runStateT proc ctx
-  where
-    proc :: MonadState Context m => m Integer
-    proc = do
-      ctx <- get
-      x <- return $ runST $ do
-        ref <- newSTRef 0
-        forM_ str $ \c -> do
-          -- undefined :: ST s ()
-          modifySTRef' ref (+1)
-        readSTRef ref
-      ctxState .= x
-      return x
+--transExample :: MonadState AppState m => String -> m (Integer, Context)
+--transExample str = do
+--  app <- get
+--  let ctx = Context app 0
+--  runStateT proc ctx
+--  where
+--    proc :: MonadState Context m => m Integer
+--    proc = do
+--      ctx <- get
+--      x <- return $ runST $ do
+--        ref <- newSTRef 0
+--        forM_ str $ \c -> do
+--          -- undefined :: ST s ()
+--          modifySTRef' ref (+1)
+--        readSTRef ref
+--      ctxState .= x
+--      return x
 
 -- for runSTT working
 --instance (Monad m) => PrimMonad (STT s m) where
