@@ -20,7 +20,11 @@ The expressions contain
     1. prec 2, assoc `-->`, binary boolean and `&`
     1. prec 1, assoc `-->`, binary boolean or `!`
     
-    
+### Examples
+
+- `ln ( exp ( 1.234 ) / 2 * [ 3 + 4 ])` should evaluate to `2.48676...`
+- `ln(R0) + ln(exp(R1) * 2 > 1 & Bx)` with bindings `{"R0": 1.0, "R1": 0.5, "Bx": true}` should fail with type error (the attempt to calculate logarithm out of a boolean value)
+
 ### Useful links
 
 - [Shunting-Yard algorithm in Wiki](https://en.wikipedia.org/wiki/Shunting-yard_algorithm)
